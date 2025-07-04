@@ -15,6 +15,11 @@ class Settings(BaseSettings):
     # Redis
     REDIS_URL: str = "redis://localhost:6379"
     
+    # OTP Storage
+    OTP_STORAGE_TYPE: str = "redis"  # memory | redis
+    OTP_TTL_SECONDS: int = 300  # 5 минут
+    OTP_MAX_ATTEMPTS: int = 3
+    
     # App
     APP_NAME: str = "Box4Kids"
     DEBUG: bool = True

@@ -1,4 +1,5 @@
-from typing import Protocol, Optional, List
+from typing import Protocol, Optional, List, Dict
+from abc import ABC, abstractmethod
 from models.user import User
 from models.child import Child
 from models.subscription import Subscription
@@ -31,6 +32,30 @@ class ISubscriptionRepository(Protocol):
     def get_by_user_id(self, user_id: int) -> List[Subscription]: ...
     def get_active_by_user_id(self, user_id: int) -> Optional[Subscription]: ...
     def deactivate_user_subscriptions(self, user_id: int) -> None: ...
+
+
+class IOTPStorage(ABC):
+    """Абстрактный класс хранилища OTP кодов"""
+    
+    @abstractmethod
+    def store_code(self, phone: str, code: str) -> bool:
+        """Сохраняет код для телефона"""
+        pass
+    
+    @abstractmethod
+    def get_code_data(self, phone: str) -> Optional[Dict]:
+        """Получает данные кода для телефона"""
+        pass
+    
+    @abstractmethod
+    def increment_attempts(self, phone: str) -> int:
+        """Увеличивает счетчик попыток"""
+        pass
+    
+    @abstractmethod
+    def delete_code(self, phone: str) -> bool:
+        """Удаляет код для телефона"""
+        pass
 
 
 class IOTPService(Protocol):

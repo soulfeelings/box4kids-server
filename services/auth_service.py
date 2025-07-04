@@ -16,11 +16,13 @@ class AuthService:
     def verify_otp_and_create_user(self, phone: str, code: str) -> Optional[User]:
         """Проверяет OTP код и создает пользователя"""
         if not self.otp_service.verify_code(phone, code):
+            print(f"AuthService: Код {code} для {phone} не прошел проверку")
             return None
         
         # Проверяем, существует ли пользователь
         existing_user = self.db.query(User).filter(User.phone_number == phone).first()
         if existing_user:
+            print(f"AuthService: Пользователь {phone} уже существует")
             return existing_user
         
         # Создаем нового пользователя
@@ -29,6 +31,7 @@ class AuthService:
         self.db.commit()
         self.db.refresh(new_user)
         
+        print(f"AuthService: Создан новый пользователь {phone}")
         return new_user
     
     def get_user_by_phone(self, phone: str) -> Optional[User]:
