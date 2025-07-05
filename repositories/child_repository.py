@@ -14,7 +14,7 @@ class ChildRepository(IChildRepository):
     
     def create(self, child: Child) -> Child:
         self._db.add(child)
-        self._db.commit()
+        self._db.flush()  # Только flush для получения ID
         self._db.refresh(child)
         return child
     
@@ -29,7 +29,7 @@ class ChildRepository(IChildRepository):
             .filter(Child.parent_id == parent_id).all()
     
     def update(self, child: Child) -> Child:
-        self._db.commit()
+        self._db.flush()  # Только flush для применения изменений
         self._db.refresh(child)
         return child
     
@@ -39,7 +39,7 @@ class ChildRepository(IChildRepository):
             return False
         
         self._db.delete(child)
-        self._db.commit()
+        self._db.flush()  # Только flush для применения удаления
         return True
     
     def update_interests(self, child_id: int, interest_ids: List[int]) -> bool:
@@ -53,7 +53,7 @@ class ChildRepository(IChildRepository):
         
         # Заменяем интересы ребенка
         child.interests = interests
-        self._db.commit()
+        self._db.flush()  # Только flush для применения изменений
         return True
     
     def update_skills(self, child_id: int, skill_ids: List[int]) -> bool:
@@ -67,5 +67,5 @@ class ChildRepository(IChildRepository):
         
         # Заменяем навыки ребенка
         child.skills = skills
-        self._db.commit()
+        self._db.flush()  # Только flush для применения изменений
         return True 

@@ -25,7 +25,7 @@ class SkillRepository:
         """Создать новый навык"""
         skill = Skill(name=name)
         self._db.add(skill)
-        self._db.commit()
+        self._db.flush()  # Только flush для получения ID
         self._db.refresh(skill)
         return skill
     
@@ -37,7 +37,7 @@ class SkillRepository:
             skills.append(skill)
         
         self._db.add_all(skills)
-        self._db.commit()
+        self._db.flush()  # Только flush для получения ID
         
         # Refresh all objects
         for skill in skills:

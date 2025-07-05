@@ -66,37 +66,31 @@ class ChildService:
                 raise HTTPException(status_code=400, detail="Некоторые навыки не найдены")
         
         # Атомарное обновление в транзакции
-        try:
-            # Обновляем основные поля
-            update_dict = update_data.model_dump(exclude_unset=True, exclude={"interest_ids", "skill_ids"})
-            for field, value in update_dict.items():
-                if field == "date_of_birth":
-                    self._validate_date_of_birth(value)
-                setattr(child, field, value)
-            
-            # Обновляем интересы если нужно
-            if update_data.interest_ids is not None:
-                interests = self._repository._db.query(Interest).filter(Interest.id.in_(update_data.interest_ids)).all()
-                child.interests = interests
-            
-            # Обновляем навыки если нужно
-            if update_data.skill_ids is not None:
-                skills = self._repository._db.query(Skill).filter(Skill.id.in_(update_data.skill_ids)).all()
-                child.skills = skills
-            
-            # Коммитим все изменения одной транзакцией
-            self._repository._db.commit()
-            
-            # Обновляем объект с актуальными данными из БД
-            self._repository._db.refresh(child)
-            
-            # Возвращаем обновленные данные без дополнительного запроса
-            return ChildResponse.model_validate(child)
-            
-        except Exception as e:
-            # Откатываем транзакцию в случае ошибки
-            self._repository._db.rollback()
-            raise HTTPException(status_code=500, detail=f"Ошибка при обновлении ребенка: {str(e)}")
+        # Обновляем основные поля
+        update_dict = update_data.model_dump(exclude_unset=True, exclude={"interest_ids", "skill_ids"})
+        for field, value in update_dict.items():
+            if field == "date_of_birth":
+                self._validate_date_of_birth(value)
+            setattr(child, field, value)
+        
+        # Обновляем интересы если нужно
+        if update_data.interest_ids is not None:
+            interests = self._repository._db.query(Interest).filter(Interest.id.in_(update_data.interest_ids)).all()
+            child.interests = interests
+        
+        # Обновляем навыки если нужно
+        if update_data.skill_ids is not None:
+            skills = self._repository._db.query(Skill).filter(Skill.id.in_(update_data.skill_ids)).all()
+            child.skills = skills
+        
+        # Применяем изменения в памяти
+        self._repository._db.flush()
+        
+        # Обновляем объект с актуальными данными из БД
+        self._repository._db.refresh(child)
+        
+        # Возвращаем обновленные данные без дополнительного запроса
+        return ChildResponse.model_validate(child)
     
     def delete_child(self, child_id: int) -> bool:
         """Удаляет ребенка"""

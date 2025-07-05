@@ -46,7 +46,7 @@ class SubscriptionService:
         )
         
         self.db.add(subscription)
-        self.db.commit()
+        self.db.flush()  # Только flush для получения ID
         self.db.refresh(subscription)
         return subscription
     

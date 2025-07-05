@@ -23,7 +23,7 @@ class ToyCategoryRepository:
         """Создать новую категорию"""
         category = ToyCategory(**category_data)
         self.db.add(category)
-        self.db.commit()
+        self.db.flush()  # Только flush для получения ID
         self.db.refresh(category)
         return category
     
@@ -35,7 +35,7 @@ class ToyCategoryRepository:
             self.db.add(category)
             categories.append(category)
         
-        self.db.commit()
+        self.db.flush()  # Только flush для получения ID
         
         for category in categories:
             self.db.refresh(category)

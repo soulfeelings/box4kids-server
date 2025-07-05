@@ -28,7 +28,7 @@ class AuthService:
         # Создаем нового пользователя
         new_user = User(phone_number=phone)
         self.db.add(new_user)
-        self.db.commit()
+        self.db.flush()  # Только flush для получения ID
         self.db.refresh(new_user)
         
         print(f"AuthService: Создан новый пользователь {phone}")

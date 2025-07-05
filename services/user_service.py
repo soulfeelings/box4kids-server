@@ -19,7 +19,7 @@ class UserService:
             return None
         
         user.name = name
-        self.db.commit()
+        self.db.flush()  # Только flush для применения изменений
         self.db.refresh(user)
         return user
     

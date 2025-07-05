@@ -25,7 +25,7 @@ class InterestRepository:
         """Создать новый интерес"""
         interest = Interest(name=name)
         self._db.add(interest)
-        self._db.commit()
+        self._db.flush()  # Только flush для получения ID
         self._db.refresh(interest)
         return interest
     
@@ -37,7 +37,7 @@ class InterestRepository:
             interests.append(interest)
         
         self._db.add_all(interests)
-        self._db.commit()
+        self._db.flush()  # Только flush для получения ID
         
         # Refresh all objects
         for interest in interests:

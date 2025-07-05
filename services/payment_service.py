@@ -22,7 +22,7 @@ class MockPaymentService(IPaymentService):
         )
         
         self._db.add(payment)
-        self._db.commit()
+        self._db.flush()  # Только flush для получения ID
         self._db.refresh(payment)
         
         return payment.id
@@ -38,7 +38,7 @@ class MockPaymentService(IPaymentService):
         is_success = random.random() < 0.9
         
         payment.status = PaymentStatus.COMPLETED if is_success else PaymentStatus.FAILED
-        self._db.commit()
+        self._db.flush()  # Только flush для применения изменений
         
         status_text = "успешно обработан" if is_success else "не прошел"
         print(f"[MOCK] Платеж {payment_id} {status_text}")

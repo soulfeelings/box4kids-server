@@ -13,7 +13,7 @@ class UserRepository(IUserRepository):
     def create(self, phone_number: str, name: Optional[str] = None) -> User:
         user = User(phone_number=phone_number, name=name)
         self._db.add(user)
-        self._db.commit()
+        self._db.flush()
         self._db.refresh(user)
         return user
     
@@ -28,7 +28,7 @@ class UserRepository(IUserRepository):
     
     def update(self, user: User) -> User:
         self._db.add(user)
-        self._db.commit()
+        self._db.flush()
         self._db.refresh(user)
         return user
     
@@ -36,6 +36,6 @@ class UserRepository(IUserRepository):
         user = self.get_by_id(user_id)
         if user:
             self._db.delete(user)
-            self._db.commit()
+            self._db.flush()
             return True
         return False 
