@@ -1,9 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+from typing import List
 from core.database import get_db
 from services.user_service import UserService
 from services.child_service import ChildService
-from schemas import UserProfileUpdate, UserProfileResponse, ChildCreate, ChildResponse
+from schemas import UserProfileUpdate, UserProfileResponse, ChildResponse
 
 router = APIRouter(prefix="/users", tags=["Users"])
 
@@ -43,27 +44,11 @@ async def update_user_profile(
     return user
 
 
-@router.post("/children", response_model=ChildResponse)
-async def add_child(
-    child_data: ChildCreate,
-    parent_id: int,
-    child_service: ChildService = Depends(get_child_service)
-):
-    """Добавляет ребенка"""
-    child = child_service.create_child(
-        parent_id=parent_id,
-        name=child_data.name,
-        age=child_data.age,
-        gender=child_data.gender
-    )
-    return child
-
-
-@router.get("/children/{parent_id}")
+@router.get("/children/{parent_id}", response_model=List[ChildResponse])
 async def get_user_children(
     parent_id: int,
     child_service: ChildService = Depends(get_child_service)
 ):
-    """Получает детей пользователя"""
+    """Получает детей пользователя с интересами и навыками"""
     children = child_service.get_children_by_parent(parent_id)
     return children 

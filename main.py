@@ -1,10 +1,16 @@
 from fastapi import FastAPI
-from api import auth, users, subscriptions, admin, main_screen
-from core.database import Base, engine
+from api import auth, users, subscriptions, admin, main_screen, children, interests, skills
+from core.database import Base, engine, get_db
 from core.config import settings
+from core.data_initialization import initialize_all_data
 
 # Создаем таблицы в БД
 Base.metadata.create_all(bind=engine)
+
+# Инициализируем данные
+db = next(get_db())
+initialize_all_data(db)
+db.close()
 
 app = FastAPI(
     title=settings.APP_NAME,
@@ -18,6 +24,9 @@ app.include_router(users.router)
 app.include_router(subscriptions.router)
 app.include_router(admin.router)
 app.include_router(main_screen.router)
+app.include_router(children.router)
+app.include_router(interests.router)
+app.include_router(skills.router)
 
 @app.get("/")
 async def root():
