@@ -3,11 +3,13 @@ from .user_schemas import UserProfileUpdate, UserProfileResponse
 from .child_schemas import ChildCreate, ChildResponse, ChildUpdate
 from .interest_schemas import InterestResponse, InterestsListResponse
 from .skill_schemas import SkillResponse, SkillsListResponse
+from .toy_category_schemas import ToyCategoryResponse, ToyCategoriesListResponse
 
 __all__ = [
     "PhoneRequest", "OTPRequest", "UserResponse",
     "UserProfileUpdate", "UserProfileResponse",
     "ChildCreate", "ChildResponse", "ChildUpdate",
     "InterestResponse", "InterestsListResponse",
-    "SkillResponse", "SkillsListResponse"
+    "SkillResponse", "SkillsListResponse",
+    "ToyCategoryResponse", "ToyCategoriesListResponse"
 ] 
