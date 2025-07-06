@@ -9,10 +9,10 @@ from .delivery_info_schemas import DeliveryInfoCreate, DeliveryInfoUpdate, Deliv
 from .subscription_schemas import (
     SubscriptionCreateRequest,
     SubscriptionUpdateRequest,
-    SubscriptionOrderResponse,
+    SubscriptionCreateResponse,
     SubscriptionResponse,
     SubscriptionWithDetailsResponse,
-    SubscriptionListResponse
+    SubscriptionListResponse,
 )
 
 __all__ = [
@@ -23,7 +23,7 @@ __all__ = [
     "SkillResponse", "SkillsListResponse",
     "ToyCategoryResponse", "ToyCategoriesListResponse",
     "SubscriptionPlanResponse", "SubscriptionPlansListResponse",
-    "SubscriptionCreateRequest", "SubscriptionUpdateRequest", "SubscriptionOrderResponse", "SubscriptionResponse",
+    "SubscriptionCreateRequest", "SubscriptionUpdateRequest", "SubscriptionCreateResponse", "SubscriptionResponse",
     "SubscriptionWithDetailsResponse", "SubscriptionListResponse",
     "DeliveryInfoCreate", "DeliveryInfoUpdate", "DeliveryInfoResponse", "DeliveryInfoListResponse"
 ] 

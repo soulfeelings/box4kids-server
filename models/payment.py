@@ -10,6 +10,7 @@ class PaymentStatus(enum.Enum):
     COMPLETED = "completed"
     FAILED = "failed"
     REFUNDED = "refunded"
+    EXPIRED = "expired"
 
 
 class Payment(Base):
@@ -20,10 +21,9 @@ class Payment(Base):
     currency: Mapped[str] = mapped_column(String, default="RUB")
     status: Mapped[PaymentStatus] = mapped_column(Enum(PaymentStatus), default=PaymentStatus.PENDING)
     user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"))
-    subscription_id: Mapped[int] = mapped_column(Integer, ForeignKey("subscriptions.id"))
     external_payment_id: Mapped[str] = mapped_column(String, nullable=True)  # ID из внешнего сервиса
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     
     # Relationships
     user = relationship("User", back_populates="payments")
-    subscription = relationship("Subscription", back_populates="payments") 
+    subscriptions = relationship("Subscription", back_populates="payment") 

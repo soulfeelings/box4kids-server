@@ -1,11 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from core.database import get_db
-from services.subscription_service import SubscriptionService
 from services.payment_service import PaymentService
-from models.subscription import SubscriptionStatus
-from schemas.subscription_schemas import SubscriptionUpdateRequest
 from pydantic import BaseModel
+from typing import List
 
 router = APIRouter(prefix="/payments", tags=["Payments"])
 
@@ -20,34 +18,62 @@ class PaymentWebhookRequest(BaseModel):
     status: str  # succeeded, failed, refunded, pending
 
 
-def get_subscription_service(db: Session = Depends(get_db)) -> SubscriptionService:
-    return SubscriptionService(db)
+class BatchPaymentCreateRequest(BaseModel):
+    subscription_ids: List[int]
 
+
+class BatchPaymentResponse(BaseModel):
+    payment_id: int
+    external_payment_id: str
+    payment_url: str
+    amount: float
+    currency: str
+    subscription_count: int
+    message: str
 
 def get_payment_service(db: Session = Depends(get_db)) -> PaymentService:
     return PaymentService(db)
 
 
+@router.post("/create-batch", response_model=BatchPaymentResponse)
+async def create_batch_payment(
+    request: BatchPaymentCreateRequest,
+    payment_service: PaymentService = Depends(get_payment_service)
+):
+    """Создает пакетный платеж для нескольких подписок"""
+    try:
+        # Создаем пакетный платеж
+        payment_response = payment_service.create_batch_payment(request.subscription_ids)
+        
+        return BatchPaymentResponse(
+            payment_id=payment_response["payment_id"],
+            external_payment_id=payment_response["external_payment_id"],
+            payment_url=payment_response["payment_url"],
+            amount=payment_response["amount"],
+            currency=payment_response["currency"],
+            subscription_count=len(request.subscription_ids),
+            message="Пакетный платеж создан, переходите к оплате"
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        print(f"Ошибка при создании пакетного платежа: {e}")
+        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
+
+
 @router.post("/{payment_id}/process")
 async def process_payment(
     payment_id: int,
-    payment_service: PaymentService = Depends(get_payment_service),
-    subscription_service: SubscriptionService = Depends(get_subscription_service)
+    payment_service: PaymentService = Depends(get_payment_service)
 ):
-    """Обрабатывает платеж и активирует подписку (с реалистичной задержкой 5-15 сек)"""
+    """Обрабатывает платеж и активирует подписки (с реалистичной задержкой 5-15 сек)"""
     try:
         # Асинхронно обрабатываем платеж с имитацией времени
         success = await payment_service.process_payment_async(payment_id)
         
         if success:
-            # Получаем информацию о платеже
-            payment = payment_service.get_payment_by_id(payment_id)
-            if payment and payment.subscription_id:
-                # Активируем подписку
-                update_data = SubscriptionUpdateRequest(status=SubscriptionStatus.ACTIVE)
-                subscription_service.update_subscription(payment.subscription_id, update_data)
-            
-            return {"status": "success", "message": "Платеж успешно обработан, подписка активирована"}
+            # Подписки активируются автоматически через property status
+            return {"status": "success", "message": "Платеж успешно обработан, подписки активированы"}
         else:
             return {"status": "failed", "message": "Платеж не прошел"}
     except Exception as e:
@@ -57,8 +83,7 @@ async def process_payment(
 @router.post("/return")
 async def payment_return(
     request: PaymentReturnRequest,
-    payment_service: PaymentService = Depends(get_payment_service),
-    subscription_service: SubscriptionService = Depends(get_subscription_service)
+    payment_service: PaymentService = Depends(get_payment_service)
 ):
     """Имитация возврата с платежной страницы"""
     try:
@@ -66,13 +91,6 @@ async def payment_return(
             request.external_payment_id, 
             request.status
         )
-        
-        if result.get("status") == "success":
-            # Активируем подписку
-            payment = payment_service.get_payment_by_id(result["payment_id"])
-            if payment and payment.subscription_id:
-                update_data = SubscriptionUpdateRequest(status=SubscriptionStatus.ACTIVE)
-                subscription_service.update_subscription(payment.subscription_id, update_data)
         
         return result
     except Exception as e:
@@ -82,8 +100,7 @@ async def payment_return(
 @router.post("/webhook")
 async def payment_webhook(
     request: PaymentWebhookRequest,
-    payment_service: PaymentService = Depends(get_payment_service),
-    subscription_service: SubscriptionService = Depends(get_subscription_service)
+    payment_service: PaymentService = Depends(get_payment_service)
 ):
     """Имитация webhook от платежной системы"""
     try:
@@ -91,13 +108,6 @@ async def payment_webhook(
             request.external_payment_id,
             request.status
         )
-        
-        if success and request.status == "succeeded":
-            # Активируем подписку
-            payment = payment_service.get_payment_by_external_id(request.external_payment_id)
-            if payment and payment.subscription_id:
-                update_data = SubscriptionUpdateRequest(status=SubscriptionStatus.ACTIVE)
-                subscription_service.update_subscription(payment.subscription_id, update_data)
         
         return {"status": "ok" if success else "error"}
     except Exception as e:

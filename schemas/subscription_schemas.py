@@ -58,18 +58,13 @@ class SubscriptionWithDetailsResponse(BaseModel):
         from_attributes = True
 
 
-class SubscriptionOrderResponse(BaseModel):
+class SubscriptionCreateResponse(BaseModel):
     """Схема ответа при создании заказа"""
     subscription_id: int
-    payment_id: int
+    payment_id: Optional[int]
     status: SubscriptionStatus
-    amount: float
-    discount_percent: float
-    final_amount: float
+    individual_price: float
     message: str
-
-
-
 
 
 class SubscriptionListResponse(BaseModel):

@@ -1,5 +1,6 @@
 from sqlalchemy.orm import Session
 from repositories.payment_repository import PaymentRepository
+from repositories.subscription_repository import SubscriptionRepository
 from services.mock_payment_gateway import MockPaymentGateway
 from models.payment import Payment, PaymentStatus
 from typing import List, Optional, Dict
@@ -9,9 +10,10 @@ class PaymentService:
     def __init__(self, db: Session):
         self.db = db
         self.payment_repo = PaymentRepository(db)
+        self.subscription_repo = SubscriptionRepository(db)
         self.gateway = MockPaymentGateway()  # В продакшне будет RealPaymentGateway
 
-    def create_payment(self, user_id: int, subscription_id: int, amount: float, currency: str = "RUB") -> Dict:
+    def create_payment(self, user_id: int, amount: float, currency: str = "RUB") -> Dict:
         """Создает платеж и возвращает данные для оплаты"""
         
         # Вызываем внешний API для создания платежа
@@ -25,7 +27,6 @@ class PaymentService:
         # Сохраняем платеж в нашей БД
         payment = Payment(
             user_id=user_id,
-            subscription_id=subscription_id,
             amount=amount,
             currency=currency,
             status=PaymentStatus.PENDING,
@@ -44,6 +45,41 @@ class PaymentService:
             "expires_at": gateway_response["expires_at"],
             "status": "pending"
         }
+
+    def create_batch_payment(self, subscription_ids: List[int]) -> Dict:
+        """Создает пакетный платеж для нескольких подписок"""
+        
+        # Получаем подписки
+        subscriptions = []
+        for subscription_id in subscription_ids:
+            subscription = self.subscription_repo.get_by_id(subscription_id)
+            if not subscription:
+                raise ValueError(f"Подписка с ID {subscription_id} не найдена")
+            if subscription.payment_id:
+                raise ValueError(f"Подписка с ID {subscription_id} уже привязана к платежу")
+            subscriptions.append(subscription)
+        
+        # Проверяем что все подписки принадлежат одному пользователю
+        user_ids = set(sub.child.parent_id for sub in subscriptions)
+        if len(user_ids) > 1:
+            raise ValueError("Все подписки должны принадлежать одному пользователю")
+        
+        user_id = user_ids.pop()
+        
+        # Рассчитываем общую сумму
+        total_amount = sum(sub.individual_price for sub in subscriptions)
+        
+        # Создаем платеж
+        payment_response = self.create_payment(user_id, total_amount)
+        payment_id = payment_response["payment_id"]
+        
+        # Привязываем подписки к платежу
+        for subscription in subscriptions:
+            subscription.payment_id = payment_id
+            self.db.flush()
+        
+        payment_response["subscription_count"] = len(subscriptions)
+        return payment_response
 
     async def process_payment_async(self, payment_id: int, simulate_delay: bool = True) -> bool:
         """Асинхронная обработка платежа через внешний API"""
@@ -144,10 +180,6 @@ class PaymentService:
     def get_user_payments(self, user_id: int) -> List[Payment]:
         """Получает все платежи пользователя"""
         return self.payment_repo.get_by_user_id(user_id)
-
-    def get_subscription_payments(self, subscription_id: int) -> List[Payment]:
-        """Получает все платежи по подписке"""
-        return self.payment_repo.get_by_subscription_id(subscription_id)
 
     def refund_payment(self, payment_id: int) -> bool:
         """Возвращает платеж через внешний API"""

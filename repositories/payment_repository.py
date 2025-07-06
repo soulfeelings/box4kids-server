@@ -24,12 +24,6 @@ class PaymentRepository:
             Payment.user_id == user_id
         ).order_by(Payment.created_at.desc()).all()
 
-    def get_by_subscription_id(self, subscription_id: int) -> List[Payment]:
-        """Получает все платежи по подписке"""
-        return self.db.query(Payment).filter(
-            Payment.subscription_id == subscription_id
-        ).order_by(Payment.created_at.desc()).all()
-
     def update_status(self, payment_id: int, status: PaymentStatus) -> Optional[Payment]:
         """Обновляет статус платежа"""
         payment = self.get_by_id(payment_id)

@@ -3,9 +3,9 @@ from repositories.subscription_repository import SubscriptionRepository
 from repositories.child_repository import ChildRepository
 from repositories.subscription_plan_repository import SubscriptionPlanRepository
 from repositories.delivery_info_repository import DeliveryInfoRepository
+from models.subscription import Subscription
 from services.payment_service import PaymentService
-from models.subscription import Subscription, SubscriptionStatus
-from schemas.subscription_schemas import SubscriptionCreateRequest, SubscriptionUpdateRequest, SubscriptionOrderResponse, SubscriptionWithDetailsResponse
+from schemas.subscription_schemas import SubscriptionCreateRequest, SubscriptionUpdateRequest, SubscriptionCreateResponse, SubscriptionWithDetailsResponse
 from typing import List, Optional
 from datetime import datetime, timedelta
 
@@ -19,8 +19,8 @@ class SubscriptionService:
         self.delivery_repo = DeliveryInfoRepository(db)
         self.payment_service = PaymentService(db)
 
-    def create_subscription_order(self, request: SubscriptionCreateRequest) -> SubscriptionOrderResponse:
-        """Создает заказ подписки и инициирует платеж"""
+    def create_subscription_order(self, request: SubscriptionCreateRequest) -> SubscriptionCreateResponse:
+        """Создает заказ подписки (без платежа, только подписка)"""
         
         # Валидация данных
         child = self.child_repo.get_by_id(request.child_id)
@@ -41,44 +41,30 @@ class SubscriptionService:
                 raise ValueError("Адрес доставки не принадлежит пользователю")
 
         # Проверяем что у ребенка нет активной подписки
-        active_subscription = self.subscription_repo.get_active_by_child_id(child.id)
-        if active_subscription:
-            raise ValueError(f"У ребенка уже есть активная подписка. Сначала отмените текущую подписку.")
+        if self.subscription_repo.has_non_cancelled_subscription(child.id):
+            raise ValueError(f"У ребенка уже есть неотмененная подписка. Отмените текущую или дождитесь её истечения.")
 
         # Рассчитываем скидку
         discount_percent = self._calculate_discount(child.parent_id)
         
-        # Создаем подписку
+        # Создаем подписку БЕЗ status (он будет вычисляться)
         subscription = Subscription(
             child_id=request.child_id,
             plan_id=request.plan_id,
             delivery_info_id=request.delivery_info_id,
-            status=SubscriptionStatus.PENDING_PAYMENT,
             discount_percent=discount_percent,
+            individual_price=plan.price_monthly,
             expires_at=datetime.utcnow() + timedelta(days=30)
         )
         
         subscription = self.subscription_repo.create(subscription)
         
-        # Рассчитываем итоговую стоимость
-        amount = plan.price_monthly
-        final_amount = amount * (1 - discount_percent / 100)
-        
-        # Создаем платеж
-        payment_response = self.payment_service.create_payment(
-            user_id=child.parent_id,
+        return SubscriptionCreateResponse(
             subscription_id=subscription.id,
-            amount=final_amount
-        )
-        
-        return SubscriptionOrderResponse(
-            subscription_id=subscription.id,
-            payment_id=payment_response["payment_id"],
-            status=subscription.status,
-            amount=amount,
-            discount_percent=discount_percent,
-            final_amount=final_amount,
-            message="Заказ успешно создан, переходите к оплате"
+            payment_id=None,  # Платеж будет создан отдельно через /payments/create-batch
+            status=subscription.status,  # Сейчас будет PENDING_PAYMENT
+            individual_price=plan.price_monthly,
+            message="Подписка создана. Используйте /payments/create-batch для оплаты"
         )
 
     def _calculate_discount(self, user_id: int) -> float:
@@ -121,16 +107,17 @@ class SubscriptionService:
         """Получает подписку по ID"""
         return self.subscription_repo.get_by_id(subscription_id)
 
-
-
-    def cancel_child_subscription(self, child_id: int) -> Optional[Subscription]:
-        """Отменяет активную подписку ребенка"""
+    def cancel_child_subscription(self, child_id: int) -> bool:
+        """Отменяет активную подписку ребенка (через отмену платежа)"""
         active_subscription = self.subscription_repo.get_active_by_child_id(child_id)
         if not active_subscription:
             raise ValueError(f"У ребенка нет активной подписки для отмены")
         
-        update_data = SubscriptionUpdateRequest(status=SubscriptionStatus.CANCELLED)
-        return self.update_subscription(active_subscription.id, update_data)
+        if active_subscription.payment_id:
+            # Отменяем платеж (это автоматически деактивирует подписку)
+            return self.payment_service.refund_payment(active_subscription.payment_id)
+        
+        return False
 
     def get_active_child_subscription(self, child_id: int) -> Optional[Subscription]:
         """Получает активную подписку ребенка"""
@@ -138,8 +125,7 @@ class SubscriptionService:
 
     def can_create_subscription_for_child(self, child_id: int) -> bool:
         """Проверяет можно ли создать подписку для ребенка"""
-        active_subscription = self.subscription_repo.get_active_by_child_id(child_id)
-        return active_subscription is None
+        return not self.subscription_repo.has_non_cancelled_subscription(child_id)
 
     def update_subscription(self, subscription_id: int, update_data: SubscriptionUpdateRequest) -> Optional[Subscription]:
         """Обновляет подписку с валидацией прав доступа"""
@@ -169,14 +155,24 @@ class SubscriptionService:
             if delivery_info.user_id != subscription.user.id:
                 raise ValueError("Адрес доставки не принадлежит пользователю")
         
-        # Обновляем только переданные поля
+        # Обновляем только переданные поля (кроме status - он вычисляется)
         update_dict = update_data.model_dump(exclude_unset=True)
+        if 'status' in update_dict:
+            del update_dict['status']  # Убираем status из обновления
+        
         for field, value in update_dict.items():
             if hasattr(subscription, field):
                 setattr(subscription, field, value)
         
         # Сохраняем изменения
-        self.db.commit()
         self.db.refresh(subscription)
         
-        return subscription 
+        return subscription
+
+    def get_pending_subscriptions_for_user(self, user_id: int) -> List[Subscription]:
+        """Получает подписки пользователя ожидающие оплату"""
+        return self.subscription_repo.get_pending_payment_by_user_id(user_id)
+
+    def get_child_subscription_history(self, child_id: int) -> List[Subscription]:
+        """Получает всю историю подписок ребенка"""
+        return self.subscription_repo.get_child_subscriptions_history(child_id) 

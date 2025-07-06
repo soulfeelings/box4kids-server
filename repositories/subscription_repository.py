@@ -1,5 +1,7 @@
 from sqlalchemy.orm import Session
-from models.subscription import Subscription, SubscriptionStatus
+from models.subscription import Subscription
+from models.payment import Payment, PaymentStatus
+from datetime import datetime
 from typing import List, Optional
 
 
@@ -26,9 +28,11 @@ class SubscriptionRepository:
 
     def get_active_by_child_id(self, child_id: int) -> Optional[Subscription]:
         """Получает активную подписку ребенка"""
-        return self.db.query(Subscription).filter(
+        # Активная подписка = есть payment, payment.status=COMPLETED, expires_at > now
+        return self.db.query(Subscription).join(Payment).filter(
             Subscription.child_id == child_id,
-            Subscription.status == SubscriptionStatus.ACTIVE
+            Payment.status == PaymentStatus.COMPLETED,
+            Subscription.expires_at > datetime.utcnow()
         ).first()
 
     def get_by_user_id(self, user_id: int) -> List[Subscription]:
@@ -39,49 +43,102 @@ class SubscriptionRepository:
             Subscription.child.has(parent_id=user_id)
         ).order_by(Subscription.created_at.desc()).all()
 
-    def update_status(self, subscription_id: int, status: SubscriptionStatus) -> Optional[Subscription]:
-        """Обновляет статус подписки"""
-        subscription = self.get_by_id(subscription_id)
-        if subscription:
-            subscription.status = status
-            self.db.flush()
-            self.db.refresh(subscription)
-        return subscription
-
-    def deactivate_user_subscriptions(self, user_id: int) -> int:
-        """Деактивирует все активные подписки пользователя"""
-        # Сначала получаем ID подписок для обновления
-        subscription_ids = self.db.query(Subscription.id).join(
+    def get_pending_payment_by_user_id(self, user_id: int) -> List[Subscription]:
+        """Получает подписки пользователя ожидающие оплату"""
+        return self.db.query(Subscription).join(
             Subscription.child
         ).filter(
             Subscription.child.has(parent_id=user_id),
-            Subscription.status == SubscriptionStatus.ACTIVE
+            Subscription.payment_id.is_(None)  # Не привязаны к платежу
+        ).order_by(Subscription.created_at.desc()).all()
+
+    def deactivate_user_subscriptions(self, user_id: int) -> int:
+        """Отменяет все платежи пользователя (тем самым деактивируя подписки)"""
+        # Находим все активные платежи пользователя
+        payment_ids = self.db.query(Payment.id).filter(
+            Payment.user_id == user_id,
+            Payment.status == PaymentStatus.COMPLETED
         ).all()
         
-        # Если подписки найдены, обновляем их без join'ов
-        if subscription_ids:
-            ids_list = [sub_id[0] for sub_id in subscription_ids]
-            updated_count = self.db.query(Subscription).filter(
-                Subscription.id.in_(ids_list)
+        if payment_ids:
+            ids_list = [payment_id[0] for payment_id in payment_ids]
+            updated_count = self.db.query(Payment).filter(
+                Payment.id.in_(ids_list)
             ).update({
-                "status": SubscriptionStatus.CANCELLED
+                "status": PaymentStatus.REFUNDED
             })
             return updated_count
         
         return 0
 
     def deactivate_child_subscriptions(self, child_id: int) -> int:
-        """Деактивирует все активные подписки конкретного ребенка"""
-        updated_count = self.db.query(Subscription).filter(
+        """Отменяет платежи за подписки конкретного ребенка"""
+        # Находим все платежи связанные с подписками этого ребенка
+        payment_ids = self.db.query(Payment.id).join(
+            Subscription, Payment.id == Subscription.payment_id
+        ).filter(
             Subscription.child_id == child_id,
-            Subscription.status == SubscriptionStatus.ACTIVE
-        ).update({
-            "status": SubscriptionStatus.CANCELLED
-        })
-        return updated_count
+            Payment.status == PaymentStatus.COMPLETED
+        ).all()
+        
+        if payment_ids:
+            ids_list = [payment_id[0] for payment_id in payment_ids]
+            updated_count = self.db.query(Payment).filter(
+                Payment.id.in_(ids_list)
+            ).update({
+                "status": PaymentStatus.REFUNDED
+            })
+            return updated_count
+        
+        return 0
 
     def get_pending_payment_subscriptions(self) -> List[Subscription]:
         """Получает подписки ожидающие оплату"""
         return self.db.query(Subscription).filter(
-            Subscription.status == SubscriptionStatus.PENDING_PAYMENT
-        ).all() 
+            Subscription.payment_id.is_(None)
+        ).all()
+
+    def get_active_subscriptions(self) -> List[Subscription]:
+        """Получает все активные подписки"""
+        return self.db.query(Subscription).join(Payment).filter(
+            Payment.status == PaymentStatus.COMPLETED,
+            Subscription.expires_at > datetime.utcnow()
+        ).all()
+
+    def get_expiring_subscriptions(self, days_ahead: int = 3) -> List[Subscription]:
+        """Получает подписки истекающие в ближайшие N дней"""
+        from datetime import timedelta
+        future_date = datetime.utcnow() + timedelta(days=days_ahead)
+        
+        return self.db.query(Subscription).join(Payment).filter(
+            Payment.status == PaymentStatus.COMPLETED,
+            Subscription.expires_at <= future_date,
+            Subscription.expires_at > datetime.utcnow()
+        ).all()
+
+    def has_non_cancelled_subscription(self, child_id: int) -> bool:
+        """Проверяет есть ли у ребенка не отмененная подписка"""
+        # Не отмененная = payment_id IS NULL ИЛИ payment.status = COMPLETED
+        
+        # Проверяем подписки без платежа (ждут оплаты)
+        pending_subscription = self.db.query(Subscription).filter(
+            Subscription.child_id == child_id,
+            Subscription.payment_id.is_(None)
+        ).first()
+        
+        if pending_subscription:
+            return True
+        
+        # Проверяем подписки с успешным платежом (неважно истекли или нет)
+        paid_subscription = self.db.query(Subscription).join(Payment).filter(
+            Subscription.child_id == child_id,
+            Payment.status == PaymentStatus.COMPLETED
+        ).first()
+        
+        return paid_subscription is not None
+
+    def get_child_subscriptions_history(self, child_id: int) -> List[Subscription]:
+        """Получает всю историю подписок ребенка (включая отмененные)"""
+        return self.db.query(Subscription).filter(
+            Subscription.child_id == child_id
+        ).order_by(Subscription.created_at.desc()).all() 

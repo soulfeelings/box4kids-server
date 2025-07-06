@@ -5,10 +5,9 @@ from services.subscription_service import SubscriptionService
 from schemas.subscription_schemas import (
     SubscriptionCreateRequest,
     SubscriptionUpdateRequest,
-    SubscriptionOrderResponse,
+    SubscriptionCreateResponse,
     SubscriptionResponse,
     SubscriptionWithDetailsResponse,
-    SubscriptionListResponse
 )
 from typing import List
 
@@ -19,7 +18,7 @@ def get_subscription_service(db: Session = Depends(get_db)) -> SubscriptionServi
     return SubscriptionService(db)
 
 
-@router.post("/create-order", response_model=SubscriptionOrderResponse)
+@router.post("/", response_model=SubscriptionCreateResponse)
 async def create_subscription_order(
     request: SubscriptionCreateRequest,
     subscription_service: SubscriptionService = Depends(get_subscription_service)
