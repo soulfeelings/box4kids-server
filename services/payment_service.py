@@ -1,39 +1,52 @@
 from sqlalchemy.orm import Session
 from repositories.payment_repository import PaymentRepository
+from services.mock_payment_gateway import MockPaymentGateway
 from models.payment import Payment, PaymentStatus
-from typing import List, Optional
-import uuid
-import random
+from typing import List, Optional, Dict
 
 
 class PaymentService:
     def __init__(self, db: Session):
         self.db = db
         self.payment_repo = PaymentRepository(db)
+        self.gateway = MockPaymentGateway()  # В продакшне будет RealPaymentGateway
 
-    def create_payment(self, user_id: int, subscription_id: int, amount: float, currency: str = "RUB") -> int:
-        """Создает платеж"""
-        # Генерируем внешний ID платежа (имитация реального API)
-        external_payment_id = f"PAY_{uuid.uuid4().hex[:12].upper()}"
+    def create_payment(self, user_id: int, subscription_id: int, amount: float, currency: str = "RUB") -> Dict:
+        """Создает платеж и возвращает данные для оплаты"""
         
+        # Вызываем внешний API для создания платежа
+        gateway_response = self.gateway.create_payment(
+            amount=amount,
+            currency=currency,
+            return_url=f"https://oursite.com/payment/return",
+            notification_url=f"https://oursite.com/payment/webhook"
+        )
+        
+        # Сохраняем платеж в нашей БД
         payment = Payment(
             user_id=user_id,
             subscription_id=subscription_id,
             amount=amount,
             currency=currency,
             status=PaymentStatus.PENDING,
-            external_payment_id=external_payment_id
+            external_payment_id=gateway_response["id"]
         )
         
         payment = self.payment_repo.create(payment)
         
-        # Здесь была бы интеграция с реальным платежным сервисом
-        # Например: payment_gateway.create_payment(payment)
-        
-        return payment.id
+        # Возвращаем данные для фронтенда
+        return {
+            "payment_id": payment.id,
+            "external_payment_id": gateway_response["id"],
+            "payment_url": gateway_response["payment_url"],
+            "amount": amount,
+            "currency": currency,
+            "expires_at": gateway_response["expires_at"],
+            "status": "pending"
+        }
 
-    def process_payment(self, payment_id: int) -> bool:
-        """Обрабатывает платеж (моканная логика)"""
+    async def process_payment_async(self, payment_id: int, simulate_delay: bool = True) -> bool:
+        """Асинхронная обработка платежа через внешний API"""
         payment = self.payment_repo.get_by_id(payment_id)
         if not payment:
             return False
@@ -41,47 +54,71 @@ class PaymentService:
         if payment.status != PaymentStatus.PENDING:
             return False
         
-        # Имитация обработки платежа (90% успех)
-        success = random.random() < 0.9
+        # Вызываем внешний API для обработки
+        gateway_response = await self.gateway.process_payment_async(
+            payment.external_payment_id, simulate_delay
+        )
         
-        if success:
-            self.payment_repo.update_status(payment_id, PaymentStatus.COMPLETED)
-        else:
-            self.payment_repo.update_status(payment_id, PaymentStatus.FAILED)
+        # Обновляем статус в нашей БД
+        success = gateway_response["status"] == "succeeded"
+        new_status = PaymentStatus.COMPLETED if success else PaymentStatus.FAILED
+        self.payment_repo.update_status(payment_id, new_status)
         
         return success
 
-    def get_payment_by_id(self, payment_id: int) -> Optional[Payment]:
-        """Получает платеж по ID"""
-        return self.payment_repo.get_by_id(payment_id)
-
-    def get_user_payments(self, user_id: int) -> List[Payment]:
-        """Получает все платежи пользователя"""
-        return self.payment_repo.get_by_user_id(user_id)
-
-    def get_subscription_payments(self, subscription_id: int) -> List[Payment]:
-        """Получает все платежи по подписке"""
-        return self.payment_repo.get_by_subscription_id(subscription_id)
-
-    def refund_payment(self, payment_id: int) -> bool:
-        """Возвращает платеж"""
+    def process_payment(self, payment_id: int) -> bool:
+        """Синхронная обработка платежа"""
         payment = self.payment_repo.get_by_id(payment_id)
-        if not payment or payment.status != PaymentStatus.COMPLETED:
+        if not payment:
             return False
         
-        # Здесь была бы интеграция с реальным платежным сервисом
-        # payment_gateway.refund_payment(payment.external_payment_id)
+        if payment.status != PaymentStatus.PENDING:
+            return False
         
-        self.payment_repo.update_status(payment_id, PaymentStatus.REFUNDED)
-        return True
+        # Вызываем внешний API
+        gateway_response = self.gateway.process_payment_sync(payment.external_payment_id)
+        
+        # Обновляем статус в БД
+        success = gateway_response["status"] == "succeeded"
+        new_status = PaymentStatus.COMPLETED if success else PaymentStatus.FAILED
+        self.payment_repo.update_status(payment_id, new_status)
+        
+        return success
 
-    def webhook_handler(self, external_payment_id: str, status: str) -> bool:
-        """Обработчик webhook от внешнего платежного сервиса"""
+    def handle_user_return(self, external_payment_id: str, status: str = "success") -> Dict:
+        """Обработка возврата пользователя с платежной страницы"""
+        payment = self.payment_repo.get_by_external_id(external_payment_id)
+        if not payment:
+            return {"error": "Payment not found"}
+        
+        # Получаем данные от внешнего API
+        gateway_response = self.gateway.simulate_user_return(external_payment_id, status)
+        
+        # Обновляем статус в БД
+        if gateway_response["status"] == "succeeded":
+            self.payment_repo.update_status(payment.id, PaymentStatus.COMPLETED)
+            return {
+                "status": "success",
+                "payment_id": payment.id,
+                "external_payment_id": external_payment_id,
+                "message": "Платеж успешно обработан"
+            }
+        else:
+            self.payment_repo.update_status(payment.id, PaymentStatus.FAILED)
+            return {
+                "status": "failed",
+                "payment_id": payment.id,
+                "external_payment_id": external_payment_id,
+                "message": "Платеж отклонен"
+            }
+
+    def handle_webhook(self, external_payment_id: str, status: str) -> bool:
+        """Обработка webhook от внешнего платежного API"""
         payment = self.payment_repo.get_by_external_id(external_payment_id)
         if not payment:
             return False
         
-        # Маппинг статусов внешнего сервиса
+        # Маппинг статусов от внешнего API
         status_mapping = {
             "succeeded": PaymentStatus.COMPLETED,
             "failed": PaymentStatus.FAILED,
@@ -96,22 +133,40 @@ class PaymentService:
         
         return False
 
-    def get_pending_payments(self) -> List[Payment]:
-        """Получает все платежи в ожидании"""
-        return self.payment_repo.get_pending_payments()
+    def get_payment_by_id(self, payment_id: int) -> Optional[Payment]:
+        """Получает платеж по ID"""
+        return self.payment_repo.get_by_id(payment_id)
 
-    def retry_failed_payment(self, payment_id: int) -> bool:
-        """Повторная попытка обработки платежа"""
+    def get_payment_by_external_id(self, external_payment_id: str) -> Optional[Payment]:
+        """Получает платеж по внешнему ID"""
+        return self.payment_repo.get_by_external_id(external_payment_id)
+
+    def get_user_payments(self, user_id: int) -> List[Payment]:
+        """Получает все платежи пользователя"""
+        return self.payment_repo.get_by_user_id(user_id)
+
+    def get_subscription_payments(self, subscription_id: int) -> List[Payment]:
+        """Получает все платежи по подписке"""
+        return self.payment_repo.get_by_subscription_id(subscription_id)
+
+    def refund_payment(self, payment_id: int) -> bool:
+        """Возвращает платеж через внешний API"""
         payment = self.payment_repo.get_by_id(payment_id)
-        if not payment or payment.status != PaymentStatus.FAILED:
+        if not payment or payment.status != PaymentStatus.COMPLETED:
             return False
         
-        # Сбрасываем статус в pending
-        self.payment_repo.update_status(payment_id, PaymentStatus.PENDING)
+        # Вызываем внешний API для возврата
+        gateway_response = self.gateway.refund_payment(
+            payment.external_payment_id, 
+            payment.amount
+        )
         
-        # Повторно обрабатываем
-        return self.process_payment(payment_id)
+        if gateway_response["status"] == "succeeded":
+            self.payment_repo.update_status(payment_id, PaymentStatus.REFUNDED)
+            return True
+        
+        return False
 
 
-# Сохраняем старый класс для обратной совместимости
+# Для обратной совместимости
 MockPaymentService = PaymentService 

@@ -63,7 +63,7 @@ class SubscriptionService:
         final_amount = amount * (1 - discount_percent / 100)
         
         # Создаем платеж
-        payment_id = self.payment_service.create_payment(
+        payment_response = self.payment_service.create_payment(
             user_id=child.parent_id,
             subscription_id=subscription.id,
             amount=final_amount
@@ -71,7 +71,7 @@ class SubscriptionService:
         
         return SubscriptionOrderResponse(
             subscription_id=subscription.id,
-            payment_id=payment_id,
+            payment_id=payment_response["payment_id"],
             status=subscription.status,
             amount=amount,
             discount_percent=discount_percent,
