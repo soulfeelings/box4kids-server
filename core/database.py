@@ -14,7 +14,9 @@ def get_db():
     try:
         yield db
         db.commit()  # Автоматический commit при успехе
-    except Exception:
+        print("Commit success")
+    except Exception as e:
+        print(f"Ошибка при работе с базой данных: {e}")
         db.rollback()  # Автоматический rollback при ошибке
         raise
     finally:

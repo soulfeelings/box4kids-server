@@ -24,7 +24,7 @@
 - Базовый: $35/мес, 6 игрушек
 - Премиум: $60/мес, 9 игрушек
 
-### 2. ToyCategory - Категории игрушек
+### 2. ToyCategory - Категории игрушек (уже реализован)
 
 Справочник категорий игрушек.
 
@@ -100,65 +100,6 @@
 - paused - приостановлена
 - cancelled - отменена
 
-### 6. SubscriptionBox - Коробки/наборы
-
-Конкретные коробки с игрушками для доставки.
-
-| Поле            | Тип      | Описание                           |
-| --------------- | -------- | ---------------------------------- |
-| id              | Integer  | Первичный ключ                     |
-| subscription_id | Integer  | FK на Subscription                 |
-| box_number      | Integer  | Номер коробки в последовательности |
-| status          | Enum     | Статус коробки                     |
-| created_at      | DateTime | Дата создания                      |
-| delivery_date   | Date     | Планируемая дата доставки          |
-| delivered_at    | DateTime | Фактическая дата доставки          |
-
-**Связи:**
-
-- subscription_id → Subscription.id
-
-**Статусы:**
-
-- pending - в ожидании
-- packaging - собирается
-- ready_for_delivery - готова к доставке
-- delivered - доставлена
-
-### 7. Toy - Игрушки
-
-Каталог всех доступных игрушек.
-
-| Поле        | Тип      | Описание            |
-| ----------- | -------- | ------------------- |
-| id          | Integer  | Первичный ключ      |
-| category_id | Integer  | FK на ToyCategory   |
-| name        | String   | Название игрушки    |
-| description | Text     | Описание            |
-| image_url   | String   | URL изображения     |
-| age_range   | String   | Возрастной диапазон |
-| created_at  | DateTime | Дата создания       |
-
-**Связи:**
-
-- category_id → ToyCategory.id
-
-### 8. BoxToy - Игрушки в коробке
-
-Связь между коробками и конкретными игрушками.
-
-| Поле     | Тип     | Описание                  |
-| -------- | ------- | ------------------------- |
-| id       | Integer | Первичный ключ            |
-| box_id   | Integer | FK на SubscriptionBox     |
-| toy_id   | Integer | FK на Toy                 |
-| quantity | Integer | Количество данной игрушки |
-
-**Связи:**
-
-- box_id → SubscriptionBox.id
-- toy_id → Toy.id
-
 ### 9. BoxReview - Отзывы на коробки
 
 Оценки и отзывы пользователей на полученные коробки.
@@ -184,8 +125,6 @@
 | id                       | Integer  | Первичный ключ                  |
 | user_id                  | Integer  | FK на User                      |
 | address                  | String   | Адрес доставки                  |
-| city                     | String   | Город                           |
-| postal_code              | String   | Почтовый индекс                 |
 | delivery_time_preference | String   | Предпочтительное время доставки |
 | courier_comment          | Text     | Комментарий для курьера         |
 | created_at               | DateTime | Дата создания                   |

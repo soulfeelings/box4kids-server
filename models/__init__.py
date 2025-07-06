@@ -6,6 +6,8 @@ from .payment import Payment, PaymentStatus
 from .interest import Interest, child_interests
 from .skill import Skill, child_skills
 from .toy_category import ToyCategory
+from .subscription_plan import SubscriptionPlan
+from .plan_toy_configuration import PlanToyConfiguration
 
 __all__ = [
     "User", "UserRole",
@@ -15,5 +17,7 @@ __all__ = [
     "Payment", "PaymentStatus",
     "Interest", "Skill", 
     "child_interests", "child_skills",
-    "ToyCategory"
+    "ToyCategory",
+    "SubscriptionPlan",
+    "PlanToyConfiguration"
 ] 

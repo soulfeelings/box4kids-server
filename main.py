@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from api import auth, users, subscriptions, admin, main_screen, children, interests, skills, toy_categories
+from api import auth, users, subscriptions, admin, main_screen, children, interests, skills, toy_categories, subscription_plans
 from core.database import Base, engine, get_db
 from core.config import settings
 from core.data_initialization import initialize_all_data
@@ -28,6 +28,7 @@ app.include_router(children.router)
 app.include_router(interests.router)
 app.include_router(skills.router)
 app.include_router(toy_categories.router)
+app.include_router(subscription_plans.router)
 
 @app.get("/")
 async def root():
