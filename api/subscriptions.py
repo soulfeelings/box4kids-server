@@ -2,37 +2,21 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from core.database import get_db
 from services.subscription_service import SubscriptionService
-from services.payment_service import PaymentService
 from schemas.subscription_schemas import (
     SubscriptionCreateRequest,
+    SubscriptionUpdateRequest,
     SubscriptionOrderResponse,
     SubscriptionResponse,
     SubscriptionWithDetailsResponse,
-    SubscriptionStatusUpdate,
     SubscriptionListResponse
 )
-from pydantic import BaseModel
 from typing import List
 
 router = APIRouter(prefix="/subscriptions", tags=["Subscriptions"])
 
 
-class PaymentReturnRequest(BaseModel):
-    external_payment_id: str
-    status: str = "success"  # success или failed
-
-
-class PaymentWebhookRequest(BaseModel):
-    external_payment_id: str
-    status: str  # succeeded, failed, refunded, pending
-
-
 def get_subscription_service(db: Session = Depends(get_db)) -> SubscriptionService:
     return SubscriptionService(db)
-
-
-def get_payment_service(db: Session = Depends(get_db)) -> PaymentService:
-    return PaymentService(db)
 
 
 @router.post("/create-order", response_model=SubscriptionOrderResponse)
@@ -46,6 +30,7 @@ async def create_subscription_order(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
+        print(f"Ошибка при создании заказа подписки: {e}")
         raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
 
 
@@ -73,139 +58,21 @@ async def get_subscription(
         raise HTTPException(status_code=404, detail="Подписка не найдена")
     return subscription
 
-
-@router.patch("/{subscription_id}/status", response_model=SubscriptionResponse)
-async def update_subscription_status(
+@router.patch("/{subscription_id}", response_model=SubscriptionResponse)
+async def update_subscription(
     subscription_id: int,
-    status_update: SubscriptionStatusUpdate,
+    update_data: SubscriptionUpdateRequest,
     subscription_service: SubscriptionService = Depends(get_subscription_service)
 ):
-    """Обновляет статус подписки"""
-    subscription = subscription_service.update_subscription_status(
-        subscription_id, status_update.status
-    )
-    if not subscription:
-        raise HTTPException(status_code=404, detail="Подписка не найдена")
-    return subscription
-
-
-@router.post("/{subscription_id}/activate", response_model=SubscriptionResponse)
-async def activate_subscription(
-    subscription_id: int,
-    subscription_service: SubscriptionService = Depends(get_subscription_service)
-):
-    """Активирует подписку (после успешной оплаты)"""
-    subscription = subscription_service.activate_subscription(subscription_id)
-    if not subscription:
-        raise HTTPException(status_code=404, detail="Подписка не найдена")
-    return subscription
-
-
-@router.post("/{subscription_id}/pause", response_model=SubscriptionResponse)
-async def pause_subscription(
-    subscription_id: int,
-    subscription_service: SubscriptionService = Depends(get_subscription_service)
-):
-    """Приостанавливает подписку"""
-    subscription = subscription_service.pause_subscription(subscription_id)
-    if not subscription:
-        raise HTTPException(status_code=404, detail="Подписка не найдена")
-    return subscription
-
-
-@router.post("/{subscription_id}/resume", response_model=SubscriptionResponse)
-async def resume_subscription(
-    subscription_id: int,
-    subscription_service: SubscriptionService = Depends(get_subscription_service)
-):
-    """Возобновляет подписку"""
-    subscription = subscription_service.resume_subscription(subscription_id)
-    if not subscription:
-        raise HTTPException(status_code=404, detail="Подписка не найдена")
-    return subscription
-
-
-@router.post("/{subscription_id}/cancel", response_model=SubscriptionResponse)
-async def cancel_subscription(
-    subscription_id: int,
-    subscription_service: SubscriptionService = Depends(get_subscription_service)
-):
-    """Отменяет подписку"""
-    subscription = subscription_service.cancel_subscription(subscription_id)
-    if not subscription:
-        raise HTTPException(status_code=404, detail="Подписка не найдена")
-    return subscription
-
-
-@router.post("/payment/{payment_id}/process")
-async def process_payment(
-    payment_id: int,
-    payment_service: PaymentService = Depends(get_payment_service),
-    subscription_service: SubscriptionService = Depends(get_subscription_service)
-):
-    """Обрабатывает платеж и активирует подписку (с реалистичной задержкой 5-15 сек)"""
+    """Обновляет подписку"""
     try:
-        # Асинхронно обрабатываем платеж с имитацией времени
-        success = await payment_service.process_payment_async(payment_id)
-        
-        if success:
-            # Получаем информацию о платеже
-            payment = payment_service.get_payment_by_id(payment_id)
-            if payment and payment.subscription_id:
-                # Активируем подписку
-                subscription_service.activate_subscription(payment.subscription_id)
-            
-            return {"status": "success", "message": "Платеж успешно обработан, подписка активирована"}
-        else:
-            return {"status": "failed", "message": "Платеж не прошел"}
+        subscription = subscription_service.update_subscription(subscription_id, update_data)
+        if not subscription:
+            raise HTTPException(status_code=404, detail="Подписка не найдена")
+        return subscription
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail="Ошибка обработки платежа")
-
-
-# Мок-endpoints для имитации платежного процесса
-@router.post("/payment/return")
-async def payment_return(
-    request: PaymentReturnRequest,
-    payment_service: PaymentService = Depends(get_payment_service),
-    subscription_service: SubscriptionService = Depends(get_subscription_service)
-):
-    """Имитация возврата с платежной страницы"""
-    try:
-        result = payment_service.handle_user_return(
-            request.external_payment_id, 
-            request.status
-        )
-        
-        if result.get("status") == "success":
-            # Активируем подписку
-            payment = payment_service.get_payment_by_id(result["payment_id"])
-            if payment and payment.subscription_id:
-                subscription_service.activate_subscription(payment.subscription_id)
-        
-        return result
-    except Exception as e:
-        raise HTTPException(status_code=500, detail="Ошибка обработки возврата")
-
-
-@router.post("/payment/webhook")
-async def payment_webhook(
-    request: PaymentWebhookRequest,
-    payment_service: PaymentService = Depends(get_payment_service),
-    subscription_service: SubscriptionService = Depends(get_subscription_service)
-):
-    """Имитация webhook от платежной системы"""
-    try:
-        success = payment_service.handle_webhook(
-            request.external_payment_id,
-            request.status
-        )
-        
-        if success and request.status == "succeeded":
-            # Активируем подписку
-            payment = payment_service.get_payment_by_external_id(request.external_payment_id)
-            if payment and payment.subscription_id:
-                subscription_service.activate_subscription(payment.subscription_id)
-        
-        return {"status": "ok" if success else "error"}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail="Ошибка обработки webhook") 
+        print(f"Ошибка при обновлении подписки: {e}")
+        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
+ 

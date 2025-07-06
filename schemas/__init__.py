@@ -8,10 +8,10 @@ from .subscription_plan_schemas import SubscriptionPlanResponse, SubscriptionPla
 from .delivery_info_schemas import DeliveryInfoCreate, DeliveryInfoUpdate, DeliveryInfoResponse, DeliveryInfoListResponse
 from .subscription_schemas import (
     SubscriptionCreateRequest,
+    SubscriptionUpdateRequest,
     SubscriptionOrderResponse,
     SubscriptionResponse,
     SubscriptionWithDetailsResponse,
-    SubscriptionStatusUpdate,
     SubscriptionListResponse
 )
 
@@ -23,7 +23,7 @@ __all__ = [
     "SkillResponse", "SkillsListResponse",
     "ToyCategoryResponse", "ToyCategoriesListResponse",
     "SubscriptionPlanResponse", "SubscriptionPlansListResponse",
-    "SubscriptionCreateRequest", "SubscriptionOrderResponse", "SubscriptionResponse",
-    "SubscriptionWithDetailsResponse", "SubscriptionStatusUpdate", "SubscriptionListResponse",
+    "SubscriptionCreateRequest", "SubscriptionUpdateRequest", "SubscriptionOrderResponse", "SubscriptionResponse",
+    "SubscriptionWithDetailsResponse", "SubscriptionListResponse",
     "DeliveryInfoCreate", "DeliveryInfoUpdate", "DeliveryInfoResponse", "DeliveryInfoListResponse"
 ] 

@@ -8,7 +8,17 @@ class SubscriptionCreateRequest(BaseModel):
     """Схема для создания подписки"""
     child_id: int = Field(..., description="ID ребенка")
     plan_id: int = Field(..., description="ID плана подписки")
-    delivery_info_id: Optional[int] = Field(None, description="ID адреса доставки")
+    delivery_info_id: Optional[int] = Field(default=None, description="ID адреса доставки")
+
+
+class SubscriptionUpdateRequest(BaseModel):
+    """Схема для обновления подписки"""
+    child_id: Optional[int] = Field(default=None, description="ID ребенка")
+    plan_id: Optional[int] = Field(default=None, description="ID плана подписки")
+    delivery_info_id: Optional[int] = Field(default=None, description="ID адреса доставки")
+    status: Optional[SubscriptionStatus] = Field(default=None, description="Статус подписки")
+    discount_percent: Optional[float] = Field(default=None, description="Процент скидки")
+    expires_at: Optional[datetime] = Field(default=None, description="Дата истечения")
 
 
 class SubscriptionResponse(BaseModel):
@@ -59,9 +69,7 @@ class SubscriptionOrderResponse(BaseModel):
     message: str
 
 
-class SubscriptionStatusUpdate(BaseModel):
-    """Схема для обновления статуса подписки"""
-    status: SubscriptionStatus
+
 
 
 class SubscriptionListResponse(BaseModel):

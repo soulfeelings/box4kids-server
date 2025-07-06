@@ -5,7 +5,7 @@ from repositories.subscription_plan_repository import SubscriptionPlanRepository
 from repositories.delivery_info_repository import DeliveryInfoRepository
 from services.payment_service import PaymentService
 from models.subscription import Subscription, SubscriptionStatus
-from schemas.subscription_schemas import SubscriptionCreateRequest, SubscriptionOrderResponse, SubscriptionWithDetailsResponse
+from schemas.subscription_schemas import SubscriptionCreateRequest, SubscriptionUpdateRequest, SubscriptionOrderResponse, SubscriptionWithDetailsResponse
 from typing import List, Optional
 from datetime import datetime, timedelta
 
@@ -40,8 +40,10 @@ class SubscriptionService:
             if delivery_info.user_id != child.parent_id:
                 raise ValueError("Адрес доставки не принадлежит пользователю")
 
-        # Деактивируем старые подписки ребенка
-        self.subscription_repo.deactivate_user_subscriptions(child.parent_id)
+        # Проверяем что у ребенка нет активной подписки
+        active_subscription = self.subscription_repo.get_active_by_child_id(child.id)
+        if active_subscription:
+            raise ValueError(f"У ребенка уже есть активная подписка. Сначала отмените текущую подписку.")
 
         # Рассчитываем скидку
         discount_percent = self._calculate_discount(child.parent_id)
@@ -119,22 +121,62 @@ class SubscriptionService:
         """Получает подписку по ID"""
         return self.subscription_repo.get_by_id(subscription_id)
 
-    def update_subscription_status(self, subscription_id: int, status: SubscriptionStatus) -> Optional[Subscription]:
-        """Обновляет статус подписки"""
-        return self.subscription_repo.update_status(subscription_id, status)
 
-    def activate_subscription(self, subscription_id: int) -> Optional[Subscription]:
-        """Активирует подписку (вызывается после успешной оплаты)"""
-        return self.update_subscription_status(subscription_id, SubscriptionStatus.ACTIVE)
 
-    def pause_subscription(self, subscription_id: int) -> Optional[Subscription]:
-        """Приостанавливает подписку"""
-        return self.update_subscription_status(subscription_id, SubscriptionStatus.PAUSED)
+    def cancel_child_subscription(self, child_id: int) -> Optional[Subscription]:
+        """Отменяет активную подписку ребенка"""
+        active_subscription = self.subscription_repo.get_active_by_child_id(child_id)
+        if not active_subscription:
+            raise ValueError(f"У ребенка нет активной подписки для отмены")
+        
+        update_data = SubscriptionUpdateRequest(status=SubscriptionStatus.CANCELLED)
+        return self.update_subscription(active_subscription.id, update_data)
 
-    def resume_subscription(self, subscription_id: int) -> Optional[Subscription]:
-        """Возобновляет подписку"""
-        return self.update_subscription_status(subscription_id, SubscriptionStatus.ACTIVE)
+    def get_active_child_subscription(self, child_id: int) -> Optional[Subscription]:
+        """Получает активную подписку ребенка"""
+        return self.subscription_repo.get_active_by_child_id(child_id)
 
-    def cancel_subscription(self, subscription_id: int) -> Optional[Subscription]:
-        """Отменяет подписку"""
-        return self.update_subscription_status(subscription_id, SubscriptionStatus.CANCELLED) 
+    def can_create_subscription_for_child(self, child_id: int) -> bool:
+        """Проверяет можно ли создать подписку для ребенка"""
+        active_subscription = self.subscription_repo.get_active_by_child_id(child_id)
+        return active_subscription is None
+
+    def update_subscription(self, subscription_id: int, update_data: SubscriptionUpdateRequest) -> Optional[Subscription]:
+        """Обновляет подписку с валидацией прав доступа"""
+        subscription = self.subscription_repo.get_by_id(subscription_id)
+        if not subscription:
+            return None
+        
+        # Валидация данных ПЕРЕД обновлением
+        if update_data.child_id is not None:
+            child = self.child_repo.get_by_id(update_data.child_id)
+            if not child:
+                raise ValueError(f"Ребенок с ID {update_data.child_id} не найден")
+            # Проверяем, что ребенок принадлежит тому же пользователю
+            if child.parent_id != subscription.user.id:
+                raise ValueError("Ребенок не принадлежит владельцу подписки")
+        
+        if update_data.plan_id is not None:
+            plan = self.plan_repo.get_by_id(update_data.plan_id)
+            if not plan:
+                raise ValueError(f"План с ID {update_data.plan_id} не найден")
+        
+        if update_data.delivery_info_id is not None:
+            delivery_info = self.delivery_repo.get_by_id(update_data.delivery_info_id)
+            if not delivery_info:
+                raise ValueError(f"Адрес доставки с ID {update_data.delivery_info_id} не найден")
+            # Проверяем, что адрес принадлежит пользователю
+            if delivery_info.user_id != subscription.user.id:
+                raise ValueError("Адрес доставки не принадлежит пользователю")
+        
+        # Обновляем только переданные поля
+        update_dict = update_data.model_dump(exclude_unset=True)
+        for field, value in update_dict.items():
+            if hasattr(subscription, field):
+                setattr(subscription, field, value)
+        
+        # Сохраняем изменения
+        self.db.commit()
+        self.db.refresh(subscription)
+        
+        return subscription 

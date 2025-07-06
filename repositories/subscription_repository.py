@@ -50,10 +50,30 @@ class SubscriptionRepository:
 
     def deactivate_user_subscriptions(self, user_id: int) -> int:
         """Деактивирует все активные подписки пользователя"""
-        updated_count = self.db.query(Subscription).join(
+        # Сначала получаем ID подписок для обновления
+        subscription_ids = self.db.query(Subscription.id).join(
             Subscription.child
         ).filter(
             Subscription.child.has(parent_id=user_id),
+            Subscription.status == SubscriptionStatus.ACTIVE
+        ).all()
+        
+        # Если подписки найдены, обновляем их без join'ов
+        if subscription_ids:
+            ids_list = [sub_id[0] for sub_id in subscription_ids]
+            updated_count = self.db.query(Subscription).filter(
+                Subscription.id.in_(ids_list)
+            ).update({
+                "status": SubscriptionStatus.CANCELLED
+            })
+            return updated_count
+        
+        return 0
+
+    def deactivate_child_subscriptions(self, child_id: int) -> int:
+        """Деактивирует все активные подписки конкретного ребенка"""
+        updated_count = self.db.query(Subscription).filter(
+            Subscription.child_id == child_id,
             Subscription.status == SubscriptionStatus.ACTIVE
         ).update({
             "status": SubscriptionStatus.CANCELLED
