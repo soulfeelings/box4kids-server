@@ -1,6 +1,6 @@
 from .user import User, UserRole
 from .child import Child, Gender
-from .subscription import Subscription
+from .subscription import Subscription, SubscriptionStatus
 from .delivery_info import DeliveryInfo
 from .payment import Payment, PaymentStatus
 from .interest import Interest, child_interests
@@ -12,7 +12,7 @@ from .plan_toy_configuration import PlanToyConfiguration
 __all__ = [
     "User", "UserRole",
     "Child", "Gender", 
-    "Subscription",
+    "Subscription", "SubscriptionStatus",
     "DeliveryInfo", 
     "Payment", "PaymentStatus",
     "Interest", "Skill", 

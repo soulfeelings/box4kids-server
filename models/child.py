@@ -23,4 +23,5 @@ class Child(Base):
     # Relationships
     parent = relationship("User", back_populates="children")
     interests = relationship("Interest", secondary="child_interests", back_populates="children")
-    skills = relationship("Skill", secondary="child_skills", back_populates="children") 
+    skills = relationship("Skill", secondary="child_skills", back_populates="children")
+    subscriptions = relationship("Subscription", back_populates="child") 

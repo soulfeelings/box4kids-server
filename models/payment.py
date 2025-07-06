@@ -25,4 +25,5 @@ class Payment(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     
     # Relationships
-    user = relationship("User", back_populates="payments") 
+    user = relationship("User", back_populates="payments")
+    subscription = relationship("Subscription", back_populates="payments") 

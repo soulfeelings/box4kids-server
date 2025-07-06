@@ -21,6 +21,5 @@ class User(Base):
     
     # Relationships
     children = relationship("Child", back_populates="parent")
-    subscriptions = relationship("Subscription", back_populates="user")
     delivery_addresses = relationship("DeliveryInfo", back_populates="user")
     payments = relationship("Payment", back_populates="user") 

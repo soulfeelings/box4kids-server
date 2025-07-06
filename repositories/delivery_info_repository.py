@@ -7,6 +7,10 @@ class DeliveryInfoRepository:
     def __init__(self, db: Session):
         self.db = db
     
+    def get_by_id(self, delivery_id: int) -> Optional[DeliveryInfo]:
+        """Получить адрес доставки по ID"""
+        return self.db.query(DeliveryInfo).filter(DeliveryInfo.id == delivery_id).first()
+    
     def get_by_user_id(self, user_id: int, limit: Optional[int] = None) -> List[DeliveryInfo]:
         """Получить адреса доставки пользователя!"""
         query = (
