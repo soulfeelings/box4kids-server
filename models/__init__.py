@@ -13,7 +13,7 @@ __all__ = [
     "User", "UserRole",
     "Child", "Gender", 
     "Subscription",
-    "DeliveryInfo",
+    "DeliveryInfo", 
     "Payment", "PaymentStatus",
     "Interest", "Skill", 
     "child_interests", "child_skills",
