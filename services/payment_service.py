@@ -84,10 +84,13 @@ class PaymentService:
     async def process_payment_async(self, payment_id: int, simulate_delay: bool = True) -> bool:
         """Асинхронная обработка платежа через внешний API"""
         payment = self.payment_repo.get_by_id(payment_id)
+        
         if not payment:
+            print(f"Payment {payment_id} not found")
             return False
         
-        if payment.status != PaymentStatus.PENDING:
+        if payment.status not in [PaymentStatus.PENDING, PaymentStatus.FAILED]:
+            print(f"Payment {payment_id} cannot be reprocessed, status is {payment.status}")
             return False
         
         # Вызываем внешний API для обработки
@@ -106,9 +109,11 @@ class PaymentService:
         """Синхронная обработка платежа"""
         payment = self.payment_repo.get_by_id(payment_id)
         if not payment:
+            print(f"Payment {payment_id} not found")
             return False
         
-        if payment.status != PaymentStatus.PENDING:
+        if payment.status not in [PaymentStatus.PENDING, PaymentStatus.FAILED]:
+            print(f"Payment {payment_id} cannot be reprocessed, status is {payment.status}")
             return False
         
         # Вызываем внешний API

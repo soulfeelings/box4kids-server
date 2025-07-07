@@ -36,6 +36,18 @@ async def send_otp(
     
     return {"message": "Код отправлен"}
 
+@router.post("/dev-get-code")
+async def dev_get_code(
+    request: PhoneRequest,
+    auth_service: AuthService = Depends(get_auth_service)
+):
+    """DEV метод чтобы получить код для тестирования"""
+    code = auth_service.dev_get_code(request.phone_number)
+    if not code:
+        raise HTTPException(status_code=400, detail="Не удалось получить код")
+    
+    return {"code": code}
+
 
 @router.post("/verify-otp", response_model=UserResponse)
 async def verify_otp(

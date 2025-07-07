@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from api import auth, users, subscriptions, payments, admin, main_screen, children, interests, skills, toy_categories, subscription_plans, delivery_addresses
 from core.database import Base, engine, get_db
 from core.config import settings
@@ -16,6 +17,22 @@ app = FastAPI(
     title=settings.APP_NAME,
     debug=settings.DEBUG,
     description="API для Box4Kids - сервис аренды игрушек для детей"
+)
+
+
+origins = [
+    "http://localhost",
+    "http://localhost:3000",  # для React/Vite
+    "https://your-frontend-domain.com",
+]
+
+# Настройка CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # Подключаем роутеры

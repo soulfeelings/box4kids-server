@@ -36,10 +36,12 @@ class MockPaymentGateway:
         if simulate_delay:
             delay = random.uniform(5, 15)
             await asyncio.sleep(delay)
+
+            
         
         # Имитация результата (90% успех как в реальности)
         success = random.random() < 0.9
-        
+        print(f"Processing payment {external_payment_id} with status {success}")
         return {
             "id": external_payment_id,
             "status": "succeeded" if success else "failed",

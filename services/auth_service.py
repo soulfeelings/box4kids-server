@@ -12,6 +12,17 @@ class AuthService:
     def verify_phone(self, phone: str) -> bool:
         """Отправляет OTP код на телефон"""
         return self.otp_service.send_code(phone)
+
+    def dev_get_code(self, phone: str) -> str | None:
+        """DEV метод чтобы получить код для тестирования"""
+        code_data = self.otp_service.storage.get_code_data(phone)
+        if code_data:
+            return code_data["code"]
+        return None
+    
+    def dev_verify_code(self, phone: str, code: str) -> bool:
+        """Проверяет OTP код"""
+        return self.otp_service.verify_code(phone, code)
     
     def verify_otp_and_create_user(self, phone: str, code: str) -> Optional[User]:
         """Проверяет OTP код и создает пользователя"""
