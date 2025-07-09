@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from api import auth, users, subscriptions, payments, admin, main_screen, children, interests, skills, toy_categories, subscription_plans, delivery_addresses
+from api import auth, users, subscriptions, payments, admin, main_screen, children, interests, skills, toy_categories, subscription_plans, delivery_addresses, toy_boxes
 from core.database import Base, engine, get_db
 from core.config import settings
 from core.data_initialization import initialize_all_data
@@ -48,6 +48,7 @@ app.include_router(skills.router)
 app.include_router(toy_categories.router)
 app.include_router(subscription_plans.router)
 app.include_router(delivery_addresses.router)
+app.include_router(toy_boxes.router)
 
 @app.get("/")
 async def root():
