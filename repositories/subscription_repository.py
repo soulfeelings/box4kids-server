@@ -25,6 +25,12 @@ class SubscriptionRepository:
         return self.db.query(Subscription).filter(
             Subscription.child_id == child_id
         ).order_by(Subscription.created_at.desc()).all()
+    
+    def get_by_payment_id(self, payment_id: int) -> Optional[Subscription]:
+        """Получает все подписки привязанные к платежу"""
+        return self.db.query(Subscription).filter(
+            Subscription.payment_id == payment_id
+        ).first()
 
     def get_active_by_child_id(self, child_id: int) -> Optional[Subscription]:
         """Получает активную подписку ребенка"""

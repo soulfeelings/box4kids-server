@@ -15,6 +15,9 @@ class Settings(BaseSettings):
     # Redis
     REDIS_URL: str = "redis://localhost:6379"
     
+    # RabbitMQ (DEV: guest/guest, PROD: используется переменная окружения)
+    RABBITMQ_URL: str = "amqp://guest:guest@localhost:5672/"
+    
     # OTP Storage
     OTP_STORAGE_TYPE: str = "redis"  # memory | redis
     OTP_TTL_SECONDS: int = 300  # 5 минут

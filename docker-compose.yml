@@ -29,6 +29,25 @@ services:
       timeout: 5s
       retries: 5
 
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports:
+      - "5672:5672" # AMQP
+      - "15672:15672" # Management UI
+    environment:
+      # Для DEV - простые guest/guest без ограничений
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+      # Разрешаем guest доступ извне (только для разработки!)
+      RABBITMQ_DEFAULT_PERMISSIONS: ".*,.*,.*"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmqctl", "status"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   api:
     build: .
     ports:
@@ -36,11 +55,15 @@ services:
     environment:
       DATABASE_URL: postgresql://postgres:password@postgres:5432/box4kids
       REDIS_URL: redis://redis:6379
+      # Для DEV - простой доступ guest/guest
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
       DEBUG: "true"
     depends_on:
       postgres:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
     volumes:
       - .:/app
@@ -49,3 +72,4 @@ services:
 volumes:
   postgres_data:
   redis_data:
+  rabbitmq_data:

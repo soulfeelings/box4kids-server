@@ -3,6 +3,8 @@ from repositories.payment_repository import PaymentRepository
 from repositories.subscription_repository import SubscriptionRepository
 from services.mock_payment_gateway import MockPaymentGateway
 from models.payment import Payment, PaymentStatus
+from core.messaging import publisher, PaymentProcessedEvent
+from core.events import ExchangeNames
 from typing import List, Optional, Dict
 
 
@@ -102,6 +104,36 @@ class PaymentService:
         success = gateway_response["status"] == "succeeded"
         new_status = PaymentStatus.COMPLETED if success else PaymentStatus.FAILED
         self.payment_repo.update_status(payment_id, new_status)
+        
+        # Если оплата успешна - публикуем события для создания ToyBox
+        if success:
+            try:
+                # Получаем подписки связанные с этим платежом
+                subscription = self.subscription_repo.get_by_payment_id(payment_id)
+                
+                if not subscription:
+                    print(f"Subscription for payment {payment_id} not found")
+                    return False
+                
+                # Публикуем событие для каждой подписки
+                event = PaymentProcessedEvent(
+                    user_id=payment.user_id,
+                    payment_id=payment_id,
+                    child_id=subscription.child_id,
+                    subscription_id=subscription.id
+                )
+                
+                publisher.publish_event(
+                    exchange=ExchangeNames.BOX4KIDS_EVENTS,
+                    routing_key=event.get_routing_key(),
+                    event_data=event.to_dict()
+                )
+                    
+                print(f"Published PaymentProcessedEvent for subscription {subscription.id}")
+                    
+            except Exception as e:
+                print(f"Failed to publish payment events: {e}")
+                # Не останавливаем процесс если публикация не удалась
         
         return success
 
