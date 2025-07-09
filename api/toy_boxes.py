@@ -6,7 +6,8 @@ from schemas.toy_box_schemas import (
     ToyBoxResponse,
     ToyBoxCreateRequest,
     ToyBoxReviewRequest,
-    ToyBoxListResponse
+    ToyBoxListResponse,
+    ToyBoxReviewsResponse
 )
 
 router = APIRouter(prefix="/toy-boxes", tags=["Toy Boxes"])
@@ -61,22 +62,33 @@ async def create_toy_box(
 @router.post("/{box_id}/review")
 async def add_box_review(
     box_id: int,
-    user_id: int,
     request: ToyBoxReviewRequest,
     toy_box_service: ToyBoxService = Depends(get_toy_box_service)
 ):
     """Добавить отзыв к набору"""
-    success = toy_box_service.add_review(
+    result = toy_box_service.add_review(
         box_id=box_id,
-        user_id=user_id,
+        user_id=request.user_id,
         rating=request.rating,
         comment=request.comment
     )
     
-    if not success:
-        raise HTTPException(status_code=400, detail="Не удалось добавить отзыв")
+    if not result["success"]:
+        raise HTTPException(status_code=400, detail=result["error"])
     
-    return {"message": "Отзыв добавлен"}
+    return {"message": "Отзыв добавлен", "review": result["review"]}
+
+
+@router.get("/{box_id}/reviews", response_model=ToyBoxReviewsResponse)
+async def get_box_reviews(
+    box_id: int,
+    toy_box_service: ToyBoxService = Depends(get_toy_box_service)
+):
+    """Получить все отзывы для набора"""
+    reviews = toy_box_service.get_box_reviews(box_id)
+    from schemas.toy_box_schemas import ToyBoxReviewResponse
+    review_responses = [ToyBoxReviewResponse.model_validate(review) for review in reviews]
+    return ToyBoxReviewsResponse(reviews=review_responses)
 
 
 @router.get("/history/{user_id}", response_model=ToyBoxListResponse)

@@ -9,7 +9,7 @@ from .delivery_info_schemas import DeliveryInfoCreate, DeliveryInfoUpdate, Deliv
 from .toy_box_schemas import (
     ToyBoxResponse, ToyBoxItemResponse, ToyBoxReviewResponse, 
     NextBoxResponse, NextBoxItemResponse, ToyBoxCreateRequest, 
-    ToyBoxReviewRequest, ToyBoxListResponse
+    ToyBoxReviewRequest, ToyBoxListResponse, ToyBoxReviewsResponse
 )
 from .subscription_schemas import (
     SubscriptionCreateRequest,
@@ -33,5 +33,5 @@ __all__ = [
     "DeliveryInfoCreate", "DeliveryInfoUpdate", "DeliveryInfoResponse", "DeliveryInfoListResponse",
     "ToyBoxResponse", "ToyBoxItemResponse", "ToyBoxReviewResponse", 
     "NextBoxResponse", "NextBoxItemResponse", "ToyBoxCreateRequest", 
-    "ToyBoxReviewRequest", "ToyBoxListResponse"
+    "ToyBoxReviewRequest", "ToyBoxListResponse", "ToyBoxReviewsResponse"
 ] 

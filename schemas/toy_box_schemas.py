@@ -66,10 +66,16 @@ class ToyBoxCreateRequest(BaseModel):
 
 class ToyBoxReviewRequest(BaseModel):
     """Запрос на добавление отзыва"""
+    user_id: int = Field(..., description="ID пользователя оставляющего отзыв")
     rating: int = Field(..., ge=1, le=5, description="Оценка от 1 до 5")
     comment: Optional[str] = Field(None, max_length=500, description="Комментарий к отзыву")
 
 
 class ToyBoxListResponse(BaseModel):
     """Список наборов"""
-    boxes: List[ToyBoxResponse] 
+    boxes: List[ToyBoxResponse]
+
+
+class ToyBoxReviewsResponse(BaseModel):
+    """Список отзывов на набор"""
+    reviews: List[ToyBoxReviewResponse] 

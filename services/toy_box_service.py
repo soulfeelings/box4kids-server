@@ -4,7 +4,7 @@ from repositories.subscription_repository import SubscriptionRepository
 from repositories.child_repository import ChildRepository
 from repositories.plan_toy_configuration_repository import PlanToyConfigurationRepository
 from repositories.toy_category_repository import ToyCategoryRepository
-from models.toy_box import ToyBox, ToyBoxItem, ToyBoxStatus
+from models.toy_box import ToyBox, ToyBoxItem, ToyBoxReview, ToyBoxStatus
 from models.subscription import SubscriptionStatus
 from typing import List, Optional, Dict, Any
 from datetime import datetime, timedelta
@@ -124,17 +124,30 @@ class ToyBoxService:
         next_box.items = items
         return next_box
 
-    def add_review(self, box_id: int, user_id: int, rating: int, comment: Optional[str] = None) -> bool:
+    def add_review(self, box_id: int, user_id: int, rating: int, comment: Optional[str] = None) -> Dict[str, Any]:
         """Добавить отзыв к набору"""
         # Проверяем права доступа
         box = self.box_repo.get_by_id(box_id)
         if not box:
-            return False
+            return {"success": False, "error": "Набор не найден"}
 
         # Проверяем, что пользователь является родителем ребёнка
         child = self.child_repo.get_by_id(box.child_id)
         if not child or child.parent_id != user_id:
-            return False
+            return {"success": False, "error": "Нет прав доступа к этому набору"}
+
+        # Проверяем статус набора (только доставленные можно оценивать)
+        if box.status != ToyBoxStatus.DELIVERED:
+            return {"success": False, "error": "Отзыв можно оставить только на доставленный набор"}
+
+        # Проверяем, что пользователь ещё не оставлял отзыв на этот набор
+        existing_review = self.db.query(ToyBoxReview).filter(
+            ToyBoxReview.box_id == box_id,
+            ToyBoxReview.user_id == user_id
+        ).first()
+        
+        if existing_review:
+            return {"success": False, "error": "Вы уже оставили отзыв на этот набор"}
 
         # Добавляем отзыв
         review_data = {
@@ -144,8 +157,12 @@ class ToyBoxService:
             "comment": comment
         }
         
-        self.box_repo.add_review(review_data)
-        return True
+        review = self.box_repo.add_review(review_data)
+        return {"success": True, "review": review}
+
+    def get_box_reviews(self, box_id: int) -> List[ToyBoxReview]:
+        """Получить все отзывы для набора"""
+        return self.box_repo.get_reviews_by_box(box_id)
 
     def get_box_history_by_user(self, user_id: int, limit: int = 10) -> List[ToyBox]:
         """Получить историю наборов для всех детей пользователя"""
