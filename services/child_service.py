@@ -93,7 +93,7 @@ class ChildService:
         return ChildResponse.model_validate(child)
     
     def delete_child(self, child_id: int) -> bool:
-        """Удаляет ребенка"""
+        """Помечает ребенка как удаленного (soft delete)"""
         return self._repository.delete(child_id)
     
     def _validate_date_of_birth(self, date_of_birth: date) -> None:

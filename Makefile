@@ -24,10 +24,11 @@ menu:
 	@echo "11) lint-local   - Run linting locally"
 	@echo "12) format-local - Format code locally"
 	@echo "13) clean        - Clean cache files"
-	@echo "14) prod-up      - Start production environment"
-	@echo "15) prod-down    - Stop production environment"
-	@echo "16) prod-rebuild - Rebuild production environment"
-	@read -p "Enter choice [1-16]: " choice; \
+	@echo "14) db-up        - Start database only"
+	@echo "15) prod-up      - Start production environment"
+	@echo "16) prod-down    - Stop production environment"
+	@echo "17) prod-rebuild - Rebuild production environment"
+	@read -p "Enter choice [1-17]: " choice; \
 	case $$choice in \
 		1) make dev ;; \
 		2) make stop ;; \
@@ -42,9 +43,10 @@ menu:
 		11) make lint-local ;; \
 		12) make format-local ;; \
 		13) make clean ;; \
-		14) make prod-up ;; \
-		15) make prod-down ;; \
-		16) make prod-rebuild ;; \
+		14) make db-up ;; \
+		15) make prod-up ;; \
+		16) make prod-down ;; \
+		17) make prod-rebuild ;; \
 		*) echo "Invalid choice!" ;; \
 	esac
 
@@ -65,6 +67,10 @@ restart:
 
 rebuild:
 	$(COMPOSE_CMD) up -d --build
+
+# Start database only
+db-up:
+	$(COMPOSE_CMD) up -d postgres
 
 # Run tests
 test:

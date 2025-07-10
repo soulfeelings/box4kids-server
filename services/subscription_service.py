@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-from repositories.subscription_repository import SubscriptionRepository
+from repositories.subscription_repository import SubscriptionRepository, SubscriptionUpdateFields
 from repositories.child_repository import ChildRepository
 from repositories.subscription_plan_repository import SubscriptionPlanRepository
 from repositories.delivery_info_repository import DeliveryInfoRepository
@@ -40,9 +40,35 @@ class SubscriptionService:
             if delivery_info.user_id != child.parent_id:
                 raise ValueError("Адрес доставки не принадлежит пользователю")
 
-        # Проверяем что у ребенка нет активной подписки
-        if self.subscription_repo.has_non_cancelled_subscription(child.id):
-            raise ValueError(f"У ребенка уже есть неотмененная подписка. Отмените текущую или дождитесь её истечения.")
+        # Проверяем что у ребенка нет активной (оплаченной) подписки
+        active_subscription = self.subscription_repo.get_active_by_child_id(child.id)
+        if active_subscription:
+            raise ValueError(f"У ребенка уже есть активная подписка. Отмените текущую или дождитесь её истечения.")
+
+        # Проверяем есть ли неоплаченная подписка
+        pending_subscription = self.subscription_repo.get_pending_payment_by_child_id(child.id)
+        
+        if pending_subscription:
+            # Если есть неоплаченная подписка, обновляем её план
+            update_data = SubscriptionUpdateFields(
+                plan_id=request.plan_id,
+                individual_price=plan.price_monthly,
+                delivery_info_id=request.delivery_info_id
+            )
+            
+            updated_subscription = self.subscription_repo.update(
+                pending_subscription.id, 
+                update_data
+            )
+            
+            if updated_subscription:
+                return SubscriptionCreateResponse(
+                    subscription_id=updated_subscription.id,
+                    payment_id=None,
+                    status=updated_subscription.status,
+                    individual_price=plan.price_monthly,
+                    message="План подписки обновлен. Используйте /payments/create-batch для оплаты"
+                )
 
         # Рассчитываем скидку
         discount_percent = self._calculate_discount(child.parent_id)
@@ -160,14 +186,11 @@ class SubscriptionService:
         if 'status' in update_dict:
             del update_dict['status']  # Убираем status из обновления
         
-        for field, value in update_dict.items():
-            if hasattr(subscription, field):
-                setattr(subscription, field, value)
+        # Создаем объект для обновления
+        update_fields = SubscriptionUpdateFields(**update_dict)
         
-        # Сохраняем изменения
-        self.db.refresh(subscription)
-        
-        return subscription
+        # Используем универсальный метод репозитория
+        return self.subscription_repo.update(subscription_id, update_fields)
 
     def get_pending_subscriptions_for_user(self, user_id: int) -> List[Subscription]:
         """Получает подписки пользователя ожидающие оплату"""

@@ -3,6 +3,19 @@ from models.subscription import Subscription
 from models.payment import Payment, PaymentStatus
 from datetime import datetime
 from typing import List, Optional
+from pydantic import BaseModel
+
+
+class SubscriptionUpdateFields(BaseModel):
+    """Типизированные поля для обновления подписки"""
+    child_id: Optional[int] = None
+    plan_id: Optional[int] = None
+    delivery_info_id: Optional[int] = None
+    payment_id: Optional[int] = None
+    discount_percent: Optional[float] = None
+    individual_price: Optional[float] = None
+    expires_at: Optional[datetime] = None
+    auto_renewal: Optional[bool] = None
 
 
 class SubscriptionRepository:
@@ -147,4 +160,30 @@ class SubscriptionRepository:
         """Получает всю историю подписок ребенка (включая отмененные)"""
         return self.db.query(Subscription).filter(
             Subscription.child_id == child_id
-        ).order_by(Subscription.created_at.desc()).all() 
+        ).order_by(Subscription.created_at.desc()).all()
+
+    def get_pending_payment_by_child_id(self, child_id: int) -> Optional[Subscription]:
+        """Получает неоплаченную подписку ребенка"""
+        return self.db.query(Subscription).filter(
+            Subscription.child_id == child_id,
+            Subscription.payment_id.is_(None)
+        ).first()
+
+    def update(self, subscription_id: int, update_data: SubscriptionUpdateFields) -> Optional[Subscription]:
+        """Универсальный метод для обновления подписки"""
+        subscription = self.db.query(Subscription).filter(
+            Subscription.id == subscription_id
+        ).first()
+        
+        if not subscription:
+            return None
+        
+        # Обновляем только переданные поля (не None)
+        for field, value in update_data.model_dump(exclude_unset=True).items():
+            if value is not None:
+                setattr(subscription, field, value)
+        
+        self.db.flush()
+        self.db.refresh(subscription)
+        
+        return subscription 

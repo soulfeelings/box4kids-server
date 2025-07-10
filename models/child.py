@@ -1,6 +1,7 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, Enum, Date, Boolean, Text
+from sqlalchemy import Column, Integer, String, ForeignKey, Enum, Date, Boolean, Text, DateTime, Index
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 import enum
+from datetime import datetime
 from core.database import Base
 
 
@@ -19,9 +20,16 @@ class Child(Base):
     has_limitations: Mapped[bool] = mapped_column(Boolean, default=False)
     comment: Mapped[str] = mapped_column(Text, nullable=True)
     parent_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"))
+    is_deleted: Mapped[bool] = mapped_column(Boolean, default=False)
+    deleted_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
     
     # Relationships
     parent = relationship("User", back_populates="children")
     interests = relationship("Interest", secondary="child_interests", back_populates="children")
     skills = relationship("Skill", secondary="child_skills", back_populates="children")
-    subscriptions = relationship("Subscription", back_populates="child") 
+    subscriptions = relationship("Subscription", back_populates="child")
+    
+    # Indexes
+    __table_args__ = (
+        Index('idx_children_parent_not_deleted', 'parent_id', 'is_deleted'),
+    ) 
