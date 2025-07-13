@@ -21,19 +21,6 @@ services:
       - app-network
     restart: unless-stopped
 
-  rabbitmq:
-    image: rabbitmq:3-management
-    environment:
-      # Безопасные пароли из переменных окружения
-      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
-      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
-    volumes:
-      - rabbitmq_data:/var/lib/rabbitmq
-    networks:
-      - app-network
-    restart: unless-stopped
-    # НЕ экспонируем порты в продакшене (только внутри Docker network)
-
   api:
     build: .
     ports:
@@ -41,14 +28,11 @@ services:
     environment:
       DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/box4kids
       REDIS_URL: redis://redis:6379
-      # Безопасный RabbitMQ доступ для продакшена
-      RABBITMQ_URL: amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@rabbitmq:5672/
       DEBUG: "false"
       SECRET_KEY: ${SECRET_KEY}
     depends_on:
       - postgres
       - redis
-      - rabbitmq
     networks:
       - app-network
     restart: unless-stopped
@@ -56,7 +40,6 @@ services:
 volumes:
   postgres_data:
   redis_data:
-  rabbitmq_data:
 
 networks:
   app-network:

@@ -25,14 +25,11 @@ class ToyBoxRepository:
         )
 
     def get_current_box_by_child(self, child_id: int) -> Optional[ToyBox]:
-        """Получить текущий набор ребёнка"""
+        """Получить текущий набор ребёнка (последний созданный)"""
         return (
             self.db.query(ToyBox)
             .options(joinedload(ToyBox.items))
-            .filter(
-                ToyBox.child_id == child_id,
-                ToyBox.status.in_([ToyBoxStatus.ASSEMBLED, ToyBoxStatus.SHIPPED, ToyBoxStatus.DELIVERED])
-            )
+            .filter(ToyBox.child_id == child_id)
             .order_by(ToyBox.created_at.desc())
             .first()
         )

@@ -3,9 +3,10 @@ from repositories.payment_repository import PaymentRepository
 from repositories.subscription_repository import SubscriptionRepository
 from services.mock_payment_gateway import MockPaymentGateway
 from models.payment import Payment, PaymentStatus
-from core.messaging import publisher, PaymentProcessedEvent
-from core.events import ExchangeNames
 from typing import List, Optional, Dict
+
+# Для прямого вызова создания ToyBox
+from services.toy_box_service import ToyBoxService
 
 
 class PaymentService:
@@ -14,6 +15,7 @@ class PaymentService:
         self.payment_repo = PaymentRepository(db)
         self.subscription_repo = SubscriptionRepository(db)
         self.gateway = MockPaymentGateway()  # В продакшне будет RealPaymentGateway
+        self.toy_box_service = ToyBoxService(db)  # Для прямого создания ToyBox
 
     def create_payment(self, user_id: int, amount: float, currency: str = "RUB") -> Dict:
         """Создает платеж и возвращает данные для оплаты"""
@@ -105,7 +107,7 @@ class PaymentService:
         new_status = PaymentStatus.COMPLETED if success else PaymentStatus.FAILED
         self.payment_repo.update_status(payment_id, new_status)
         
-        # Если оплата успешна - публикуем события для создания ToyBox
+        # Если оплата успешна - создаем ToyBox
         if success:
             try:
                 # Получаем подписки связанные с этим платежом
@@ -115,25 +117,13 @@ class PaymentService:
                     print(f"Subscription for payment {payment_id} not found")
                     return False
                 
-                # Публикуем событие для каждой подписки
-                event = PaymentProcessedEvent(
-                    user_id=payment.user_id,
-                    payment_id=payment_id,
-                    child_id=subscription.child_id,
-                    subscription_id=subscription.id
-                )
-                
-                publisher.publish_event(
-                    exchange=ExchangeNames.BOX4KIDS_EVENTS,
-                    routing_key=event.get_routing_key(),
-                    event_data=event.to_dict()
-                )
-                    
-                print(f"Published PaymentProcessedEvent for subscription {subscription.id}")
+                # Создаем ToyBox для подписки
+                toy_box = self.toy_box_service.create_box_for_subscription(subscription.id)
+                print(f"Created ToyBox {toy_box.id} for subscription {subscription.id}")
                     
             except Exception as e:
-                print(f"Failed to publish payment events: {e}")
-                # Не останавливаем процесс если публикация не удалась
+                print(f"Failed to create ToyBox: {e}")
+                # Не останавливаем процесс если создание ToyBox не удалось
         
         return success
 

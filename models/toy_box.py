@@ -5,11 +5,13 @@ import enum
 from core.database import Base
 
 class ToyBoxStatus(enum.Enum):
-    PLANNED = "planned"
-    ASSEMBLED = "assembled"
-    SHIPPED = "shipped"
-    DELIVERED = "delivered"
-    RETURNED = "returned"
+    """Статусы набора игрушек в процессе аренды"""
+    
+    PLANNED = "planned"        # 🎯 ToyBox создан после оплаты, ждёт сборки на складе
+    ASSEMBLED = "assembled"    # 📋 Игрушки собраны и упакованы, готовы к отправке
+    SHIPPED = "shipped"        # 🚚 Набор передан курьеру, в пути к клиенту
+    DELIVERED = "delivered"    # ✅ Клиент получил набор, период аренды активен
+    RETURNED = "returned"      # 🔄 Игрушки возвращены, набор завершён
 
 class ToyBox(Base):
     __tablename__ = "toy_boxes"

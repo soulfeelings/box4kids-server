@@ -7,6 +7,4 @@ POSTGRES_PASSWORD=your_super_secure_postgres_password_here
 # Application  
 SECRET_KEY=your_super_secure_jwt_secret_key_here_min_32_chars
 
-# RabbitMQ
-RABBITMQ_USER=box4kids_admin
-RABBITMQ_PASSWORD=your_super_secure_rabbitmq_password_here 
+ 
