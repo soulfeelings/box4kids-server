@@ -1,7 +1,8 @@
 from sqlalchemy.orm import Session
 from models.user import User
 from .otp_service import OTPService
-from typing import Optional
+from .jwt_service import get_jwt_service
+from typing import Optional, Dict
 
 
 class AuthService:
@@ -47,4 +48,19 @@ class AuthService:
     
     def get_user_by_phone(self, phone: str) -> Optional[User]:
         """Получает пользователя по номеру телефона"""
-        return self.db.query(User).filter(User.phone_number == phone).first() 
+        return self.db.query(User).filter(User.phone_number == phone).first()
+    
+    def create_tokens_for_user(self, user: User) -> Dict[str, str]:
+        """Создает JWT токены для пользователя"""
+        jwt_service = get_jwt_service()
+        access_token = jwt_service.create_access_token(
+            user_id=user.id,
+            phone_number=user.phone_number,
+            name=user.name
+        )
+        refresh_token = jwt_service.create_refresh_token(user_id=user.id)
+        
+        return {
+            "access_token": access_token,
+            "refresh_token": refresh_token
+        } 

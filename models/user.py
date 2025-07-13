@@ -1,8 +1,14 @@
-from sqlalchemy import Column, Integer, String, DateTime, Enum
-from sqlalchemy.orm import relationship
+from sqlalchemy import String, DateTime, Enum
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from datetime import datetime
 import enum
+from typing import Optional, List, TYPE_CHECKING
 from core.database import Base
+
+if TYPE_CHECKING:
+    from .child import Child
+    from .delivery_info import DeliveryInfo
+    from .payment import Payment
 
 
 class UserRole(enum.Enum):
@@ -13,13 +19,13 @@ class UserRole(enum.Enum):
 class User(Base):
     __tablename__ = "users"
     
-    id = Column(Integer, primary_key=True, index=True)
-    phone_number = Column(String, unique=True, index=True, nullable=False)
-    name = Column(String, nullable=True)
-    role = Column(Enum(UserRole), default=UserRole.USER)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    phone_number: Mapped[str] = mapped_column(String, unique=True, index=True)
+    name: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    role: Mapped[UserRole] = mapped_column(Enum(UserRole), default=UserRole.USER)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     
     # Relationships
-    children = relationship("Child", back_populates="parent")
-    delivery_addresses = relationship("DeliveryInfo", back_populates="user")
-    payments = relationship("Payment", back_populates="user") 
+    children: Mapped[List["Child"]] = relationship("Child", back_populates="parent")
+    delivery_addresses: Mapped[List["DeliveryInfo"]] = relationship("DeliveryInfo", back_populates="user")
+    payments: Mapped[List["Payment"]] = relationship("Payment", back_populates="user") 

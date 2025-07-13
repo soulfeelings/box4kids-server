@@ -1,7 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from core.database import get_db
+from core.security import get_current_user
 from services.payment_service import PaymentService
+from schemas.auth_schemas import UserFromToken
 from pydantic import BaseModel
 from typing import List
 
@@ -38,6 +40,7 @@ def get_payment_service(db: Session = Depends(get_db)) -> PaymentService:
 @router.post("/create-batch", response_model=BatchPaymentResponse)
 async def create_batch_payment(
     request: BatchPaymentCreateRequest,
+    current_user: UserFromToken = Depends(get_current_user),
     payment_service: PaymentService = Depends(get_payment_service)
 ):
     """Создает пакетный платеж для нескольких подписок"""
@@ -64,6 +67,7 @@ async def create_batch_payment(
 @router.post("/{payment_id}/process")
 async def process_payment(
     payment_id: int,
+    current_user: UserFromToken = Depends(get_current_user),
     payment_service: PaymentService = Depends(get_payment_service)
 ):
     """Обрабатывает платеж и активирует подписки (с реалистичной задержкой 5-15 сек)"""

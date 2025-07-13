@@ -6,6 +6,7 @@ from services import AuthService
 from services.otp_service import OTPService
 from services.otp_factory import get_otp_storage
 from schemas import PhoneRequest, OTPRequest, UserResponse, DevGetCodeResponse
+from schemas.auth_schemas import AuthResponse
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -49,12 +50,12 @@ async def dev_get_code(
     return {"code": code}
 
 
-@router.post("/verify-otp", response_model=UserResponse)
+@router.post("/verify-otp", response_model=AuthResponse)
 async def verify_otp(
     request: OTPRequest,
     auth_service: AuthService = Depends(get_auth_service)
 ):
-    """Проверяет OTP код и создает/возвращает пользователя"""
+    """Проверяет OTP код и создает/возвращает пользователя с токенами"""
     user = auth_service.verify_otp_and_create_user(
         request.phone_number, 
         request.code
@@ -64,4 +65,10 @@ async def verify_otp(
         print(f"API /verify-otp: Неверный код для {request.phone_number}")
         raise HTTPException(status_code=400, detail="Неверный код")
     
-    return user 
+    # Создаем токены
+    tokens = auth_service.create_tokens_for_user(user)
+    
+    return AuthResponse(
+        user=UserResponse.model_validate(user),
+        **tokens
+    ) 

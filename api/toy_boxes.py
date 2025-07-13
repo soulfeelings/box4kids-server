@@ -1,7 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from core.database import get_db
+from core.security import get_current_user
 from services.toy_box_service import ToyBoxService
+from schemas.auth_schemas import UserFromToken
 from schemas.toy_box_schemas import (
     ToyBoxResponse,
     ToyBoxCreateRequest,
@@ -21,9 +23,11 @@ def get_toy_box_service(db: Session = Depends(get_db)) -> ToyBoxService:
 @router.get("/current/{child_id}", response_model=ToyBoxResponse)
 async def get_current_box(
     child_id: int,
+    current_user: UserFromToken = Depends(get_current_user),
     toy_box_service: ToyBoxService = Depends(get_toy_box_service)
 ):
     """Получить текущий набор ребёнка"""
+    # TODO: Проверить что ребенок принадлежит текущему пользователю
     current_box = toy_box_service.get_current_box_by_child(child_id)
     
     if not current_box:
@@ -92,14 +96,14 @@ async def get_box_reviews(
     return ToyBoxReviewsResponse(reviews=review_responses)
 
 
-@router.get("/history/{user_id}", response_model=ToyBoxListResponse)
+@router.get("/history", response_model=ToyBoxListResponse)
 async def get_box_history(
-    user_id: int,
+    current_user: UserFromToken = Depends(get_current_user),
     limit: int = 10,
     toy_box_service: ToyBoxService = Depends(get_toy_box_service)
 ):
-    """Получить историю наборов пользователя"""
-    boxes = toy_box_service.get_box_history_by_user(user_id, limit)
+    """Получить историю наборов текущего пользователя"""
+    boxes = toy_box_service.get_box_history_by_user(current_user.id, limit)
     box_responses = [ToyBoxResponse.model_validate(box) for box in boxes]
     return ToyBoxListResponse(boxes=box_responses)
 

@@ -23,3 +23,22 @@ class UserResponse(BaseModel):
 
 class DevGetCodeResponse(BaseModel):
     code: str
+
+
+# JWT схемы
+class TokenResponse(BaseModel):
+    access_token: str
+    refresh_token: Optional[str] = None
+
+
+class AuthResponse(BaseModel):
+    user: UserResponse
+    access_token: str
+    refresh_token: Optional[str] = None
+
+
+class UserFromToken(BaseModel):
+    """Пользователь из JWT токена - без запроса к БД"""
+    id: int
+    phone_number: str
+    name: Optional[str] = None
