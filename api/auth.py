@@ -5,7 +5,7 @@ from core.database import get_db
 from services import AuthService
 from services.otp_service import OTPService
 from services.otp_factory import get_otp_storage
-from schemas import PhoneRequest, OTPRequest, UserResponse
+from schemas import PhoneRequest, OTPRequest, UserResponse, DevGetCodeResponse
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -36,7 +36,7 @@ async def send_otp(
     
     return {"message": "Код отправлен"}
 
-@router.post("/dev-get-code")
+@router.post("/dev-get-code", response_model=DevGetCodeResponse)
 async def dev_get_code(
     request: PhoneRequest,
     auth_service: AuthService = Depends(get_auth_service)

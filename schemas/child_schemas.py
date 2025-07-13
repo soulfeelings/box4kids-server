@@ -6,6 +6,29 @@ from .interest_schemas import InterestResponse
 from .skill_schemas import SkillResponse
 
 
+def validate_birth_date(birth_date: date) -> date:
+    """Общая валидация даты рождения"""
+    today = date.today()
+    
+    # Дата рождения не может быть в будущем
+    if birth_date > today:
+        raise ValueError("Дата рождения не может быть в будущем")
+    
+    # Вычисляем возраст
+    age = today.year - birth_date.year
+    if (today.month, today.day) < (birth_date.month, birth_date.day):
+        age -= 1
+    
+    # Возраст не может быть отрицательным (для детей младше года)
+    age = max(0, age)
+    
+    # Ребенок должен быть от 0 до 18 лет
+    if age > 18:
+        raise ValueError("Возраст ребенка должен быть от 0 до 18 лет")
+        
+    return birth_date
+
+
 class ChildCreate(BaseModel):
     name: str = Field(..., description="Имя ребенка")
     date_of_birth: date = Field(..., description="Дата рождения ребенка")
@@ -16,26 +39,7 @@ class ChildCreate(BaseModel):
     @field_validator('date_of_birth')
     @classmethod
     def validate_date_of_birth(cls, v: date) -> date:
-        """Валидация даты рождения"""
-        today = date.today()
-        
-        # Дата рождения не может быть в будущем
-        if v > today:
-            raise ValueError("Дата рождения не может быть в будущем")
-        
-        # Вычисляем возраст
-        age = today.year - v.year
-        if (today.month, today.day) < (v.month, v.day):
-            age -= 1
-        
-        # Возраст не может быть отрицательным (для детей младше года)
-        age = max(0, age)
-        
-        # Ребенок должен быть от 0 до 18 лет
-        if age > 18:
-            raise ValueError("Возраст ребенка должен быть от 0 до 18 лет")
-            
-        return v
+        return validate_birth_date(v)
 
 
 class ChildResponse(BaseModel):
@@ -78,4 +82,11 @@ class ChildUpdate(BaseModel):
     has_limitations: Optional[bool] = None
     comment: Optional[str] = None
     interest_ids: Optional[List[int]] = None
-    skill_ids: Optional[List[int]] = None 
+    skill_ids: Optional[List[int]] = None
+    
+    @field_validator('date_of_birth')
+    @classmethod
+    def validate_date_of_birth(cls, v: Optional[date]) -> Optional[date]:
+        if v is None:
+            return None
+        return validate_birth_date(v) 

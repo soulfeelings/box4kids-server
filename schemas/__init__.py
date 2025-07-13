@@ -1,4 +1,4 @@
-from .auth_schemas import PhoneRequest, OTPRequest, UserResponse
+from .auth_schemas import PhoneRequest, OTPRequest, UserResponse, DevGetCodeResponse
 from .user_schemas import UserProfileUpdate, UserProfileResponse
 from .child_schemas import ChildCreate, ChildResponse, ChildUpdate
 from .interest_schemas import InterestResponse, InterestsListResponse
@@ -33,5 +33,6 @@ __all__ = [
     "DeliveryInfoCreate", "DeliveryInfoUpdate", "DeliveryInfoResponse", "DeliveryInfoListResponse",
     "ToyBoxResponse", "ToyBoxItemResponse", "ToyBoxReviewResponse", 
     "NextBoxResponse", "NextBoxItemResponse", "ToyBoxCreateRequest", 
-    "ToyBoxReviewRequest", "ToyBoxListResponse", "ToyBoxReviewsResponse"
+    "ToyBoxReviewRequest", "ToyBoxListResponse", "ToyBoxReviewsResponse",
+    "DevGetCodeResponse"
 ] 
