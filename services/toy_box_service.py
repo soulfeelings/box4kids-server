@@ -6,9 +6,9 @@ from repositories.plan_toy_configuration_repository import PlanToyConfigurationR
 from repositories.toy_category_repository import ToyCategoryRepository
 from models.toy_box import ToyBox, ToyBoxItem, ToyBoxReview, ToyBoxStatus
 from models.subscription import SubscriptionStatus
+from schemas.toy_box_schemas import NextBoxResponse, NextBoxItemResponse
 from typing import List, Optional, Dict, Any
 from datetime import datetime, timedelta
-
 
 class ToyBoxService:
     def __init__(self, db: Session):
@@ -73,24 +73,28 @@ class ToyBoxService:
         
         return None
 
-    def generate_next_box_for_child(self, child_id: int) -> Optional[ToyBox]:
+    def generate_next_box_for_child(self, child_id: int) -> Optional[NextBoxResponse]:
         """Генерировать следующий набор на лету (не сохраняется в БД)"""
         child = self.child_repo.get_by_id(child_id)
+        print(f"generate_next_box_for_child: Child: {child}")
         if not child:
             raise ValueError(f"Ребёнок {child_id} не найден")
 
         # Получаем активную подписку
         subscription = self.subscription_repo.get_active_by_child_id(child_id)
+        print(f"generate_next_box_for_child: Subscription: {subscription}")
         if not subscription:
             return None
 
         # Получаем конфигурацию плана
         plan_configs = self.config_repo.get_by_plan_id(subscription.plan_id)
+        print(f"generate_next_box_for_child: Plan configs: {plan_configs}")
         if not plan_configs:
             return None
 
         # Рассчитываем даты
         current_box = self.get_current_box_by_child(child_id)
+        print(f"generate_next_box_for_child: Current box: {current_box}")
         if current_box and current_box.return_date:
             next_delivery = current_box.return_date + timedelta(days=1)
             next_return = next_delivery + timedelta(days=14)
@@ -98,31 +102,30 @@ class ToyBoxService:
             next_delivery = datetime.utcnow() + timedelta(days=7)
             next_return = next_delivery + timedelta(days=14)
 
-        # Создаем ToyBox объект (не сохраняем в БД)
-        next_box = ToyBox(
-            subscription_id=subscription.id,
-            child_id=child_id,
-            status=ToyBoxStatus.PLANNED,
-            delivery_date=next_delivery,
-            return_date=next_return,
-            created_at=datetime.utcnow()
-        )
-
         # Формируем состав следующего набора
         items = []
         for config in plan_configs:
             category = self.category_repo.get_by_id(config.category_id)
+            print(f"generate_next_box_for_child: Category: {category}")
             if category:
-                item = ToyBoxItem(
-                    toy_category_id=config.category_id,
+                item = NextBoxItemResponse(
+                    category_id=config.category_id,
+                    category_name=getattr(category, 'name'),
+                    category_icon=getattr(category, 'icon'),
                     quantity=config.quantity
                 )
-                # Добавляем связь с категорией для удобства
-                item.category = category
                 items.append(item)
+                print(f"generate_next_box_for_child: Item: {item}")
 
-        next_box.items = items
-        return next_box
+        next_box_response = NextBoxResponse(
+            items=items,
+            delivery_date=next_delivery,
+            return_date=next_return,
+            message=f"Следующий набор для {child.name}"
+        )
+        
+        print(f"generate_next_box_for_child: Next box response: {next_box_response}")
+        return next_box_response
 
     def add_review(self, box_id: int, user_id: int, rating: int, comment: Optional[str] = None) -> Dict[str, Any]:
         """Добавить отзыв к набору"""

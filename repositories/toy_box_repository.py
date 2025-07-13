@@ -19,7 +19,7 @@ class ToyBoxRepository:
         """Получить набор по ID с составом"""
         return (
             self.db.query(ToyBox)
-            .options(joinedload(ToyBox.items))
+            .options(joinedload(ToyBox.items), joinedload(ToyBox.reviews))
             .filter(ToyBox.id == box_id)
             .first()
         )
@@ -28,7 +28,7 @@ class ToyBoxRepository:
         """Получить текущий набор ребёнка (последний созданный)"""
         return (
             self.db.query(ToyBox)
-            .options(joinedload(ToyBox.items))
+            .options(joinedload(ToyBox.items), joinedload(ToyBox.reviews))
             .filter(ToyBox.child_id == child_id)
             .order_by(ToyBox.created_at.desc())
             .first()

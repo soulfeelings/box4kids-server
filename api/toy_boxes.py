@@ -7,7 +7,8 @@ from schemas.toy_box_schemas import (
     ToyBoxCreateRequest,
     ToyBoxReviewRequest,
     ToyBoxListResponse,
-    ToyBoxReviewsResponse
+    ToyBoxReviewsResponse,
+    NextBoxResponse
 )
 
 router = APIRouter(prefix="/toy-boxes", tags=["Toy Boxes"])
@@ -31,7 +32,7 @@ async def get_current_box(
     return current_box
 
 
-@router.get("/next/{child_id}", response_model=ToyBoxResponse)
+@router.get("/next/{child_id}", response_model=NextBoxResponse)
 async def get_next_box(
     child_id: int,
     toy_box_service: ToyBoxService = Depends(get_toy_box_service)
