@@ -7,7 +7,6 @@ from schemas.auth_schemas import UserFromToken
 from schemas.subscription_schemas import (
     SubscriptionCreateRequest,
     SubscriptionUpdateRequest,
-    SubscriptionCreateResponse,
     SubscriptionResponse,
     SubscriptionWithDetailsResponse,
 )
@@ -20,7 +19,7 @@ def get_subscription_service(db: Session = Depends(get_db)) -> SubscriptionServi
     return SubscriptionService(db)
 
 
-@router.post("/", response_model=SubscriptionCreateResponse)
+@router.post("/", response_model=SubscriptionResponse)
 async def create_subscription_order(
     request: SubscriptionCreateRequest,
     current_user: UserFromToken = Depends(get_current_user),

@@ -5,7 +5,7 @@ from repositories.subscription_plan_repository import SubscriptionPlanRepository
 from repositories.delivery_info_repository import DeliveryInfoRepository
 from models.subscription import Subscription
 from services.payment_service import PaymentService
-from schemas.subscription_schemas import SubscriptionCreateRequest, SubscriptionUpdateRequest, SubscriptionCreateResponse, SubscriptionWithDetailsResponse
+from schemas.subscription_schemas import SubscriptionCreateRequest, SubscriptionResponse, SubscriptionUpdateRequest, SubscriptionWithDetailsResponse
 from typing import List, Optional
 from datetime import datetime, timedelta
 
@@ -19,7 +19,7 @@ class SubscriptionService:
         self.delivery_repo = DeliveryInfoRepository(db)
         self.payment_service = PaymentService(db)
 
-    def create_subscription_order(self, request: SubscriptionCreateRequest) -> SubscriptionCreateResponse:
+    def create_subscription_order(self, request: SubscriptionCreateRequest) -> SubscriptionResponse:
         """Создает заказ подписки (без платежа, только подписка)"""
         
         # Валидация данных
@@ -62,12 +62,15 @@ class SubscriptionService:
             )
             
             if updated_subscription:
-                return SubscriptionCreateResponse(
-                    subscription_id=updated_subscription.id,
-                    payment_id=None,
+                return SubscriptionResponse(
+                    id=updated_subscription.id,
+                    child_id=updated_subscription.child_id,
+                    plan_id=updated_subscription.plan_id,
+                    delivery_info_id=updated_subscription.delivery_info_id,
                     status=updated_subscription.status,
-                    individual_price=plan.price_monthly,
-                    message="План подписки обновлен. Используйте /payments/create-batch для оплаты"
+                    discount_percent=updated_subscription.discount_percent,
+                    created_at=updated_subscription.created_at,
+                    expires_at=updated_subscription.expires_at
                 )
 
         # Рассчитываем скидку
@@ -85,12 +88,15 @@ class SubscriptionService:
         
         subscription = self.subscription_repo.create(subscription)
         
-        return SubscriptionCreateResponse(
-            subscription_id=subscription.id,
-            payment_id=None,  # Платеж будет создан отдельно через /payments/create-batch
-            status=subscription.status,  # Сейчас будет PENDING_PAYMENT
-            individual_price=plan.price_monthly,
-            message="Подписка создана. Используйте /payments/create-batch для оплаты"
+        return SubscriptionResponse(
+            id=subscription.id,
+            child_id=subscription.child_id,
+            plan_id=subscription.plan_id,
+            delivery_info_id=subscription.delivery_info_id,
+            status=subscription.status,
+            discount_percent=subscription.discount_percent,
+            created_at=subscription.created_at,
+            expires_at=subscription.expires_at
         )
 
     def _calculate_discount(self, user_id: int) -> float:
