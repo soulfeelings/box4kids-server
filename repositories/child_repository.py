@@ -21,12 +21,12 @@ class ChildRepository(IChildRepository):
     
     def get_by_id(self, child_id: int) -> Optional[Child]:
         return self._db.query(Child)\
-            .options(joinedload(Child.interests), joinedload(Child.skills))\
+            .options(joinedload(Child.interests), joinedload(Child.skills), joinedload(Child.subscriptions))\
             .filter(Child.id == child_id, Child.is_deleted == False).first()
     
     def get_by_parent_id(self, parent_id: int) -> List[Child]:
         return self._db.query(Child)\
-            .options(joinedload(Child.interests), joinedload(Child.skills))\
+            .options(joinedload(Child.interests), joinedload(Child.skills), joinedload(Child.subscriptions))\
             .filter(Child.parent_id == parent_id, Child.is_deleted == False).all()
     
     def update(self, child: Child) -> Child:

@@ -1,5 +1,5 @@
 from .auth_schemas import PhoneRequest, OTPRequest, UserResponse, DevGetCodeResponse
-from .user_schemas import UserProfileUpdate, UserProfileResponse
+from .user_schemas import UserProfileUpdateRequest, UserProfileResponse, UserProfileUpdateResponse
 from .child_schemas import ChildCreate, ChildResponse, ChildUpdate
 from .interest_schemas import InterestResponse, InterestsListResponse
 from .skill_schemas import SkillResponse, SkillsListResponse
@@ -22,7 +22,8 @@ from .subscription_schemas import (
 
 __all__ = [
     "PhoneRequest", "OTPRequest", "UserResponse",
-    "UserProfileUpdate", "UserProfileResponse",
+    "UserProfileUpdateRequest", "UserProfileResponse",
+    "UserProfileUpdateResponse",
     "ChildCreate", "ChildResponse", "ChildUpdate",
     "InterestResponse", "InterestsListResponse",
     "SkillResponse", "SkillsListResponse",

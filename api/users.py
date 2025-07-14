@@ -5,7 +5,7 @@ from core.database import get_db
 from core.security import get_current_user
 from services.user_service import UserService
 from services.child_service import ChildService
-from schemas import UserProfileUpdate, UserProfileResponse, ChildResponse
+from schemas import UserProfileUpdateRequest, UserProfileResponse, UserProfileUpdateResponse, ChildResponse
 from schemas.auth_schemas import UserFromToken
 
 router = APIRouter(prefix="/users", tags=["Users"])
@@ -25,16 +25,16 @@ async def get_user_profile(
     user_service: UserService = Depends(get_user_service)
 ):
     """Получает профиль текущего пользователя с детьми"""
-    user = user_service.get_user_with_children(current_user.id)
+    user = user_service.get_user_by_id(current_user.id)
     if not user:
         raise HTTPException(status_code=404, detail="Пользователь не найден")
     
     return user
 
 
-@router.put("/profile", response_model=UserProfileResponse)
+@router.put("/profile", response_model=UserProfileUpdateResponse)
 async def update_user_profile(
-    profile_data: UserProfileUpdate,
+    profile_data: UserProfileUpdateRequest,
     current_user: UserFromToken = Depends(get_current_user),
     user_service: UserService = Depends(get_user_service)
 ):

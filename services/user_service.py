@@ -1,6 +1,5 @@
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from models.user import User
-from models.child import Child
 from typing import Optional, List
 
 
@@ -25,7 +24,7 @@ class UserService:
     
     def get_user_with_children(self, user_id: int) -> Optional[User]:
         """Получает пользователя с детьми"""
-        return self.db.query(User).filter(User.id == user_id).first()
+        return self.db.query(User).options(joinedload(User.children)).filter(User.id == user_id).first()
     
     def get_all_users(self) -> List[User]:
         """Получает всех пользователей (для админки)"""

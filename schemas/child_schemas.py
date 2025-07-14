@@ -4,6 +4,7 @@ from datetime import date
 from models.child import Gender
 from .interest_schemas import InterestResponse
 from .skill_schemas import SkillResponse
+from .subscription_schemas import SubscriptionResponse
 
 
 def validate_birth_date(birth_date: date) -> date:
@@ -50,8 +51,9 @@ class ChildResponse(BaseModel):
     has_limitations: bool
     comment: Optional[str]
     parent_id: int
-    interests: List[InterestResponse] = []
-    skills: List[SkillResponse] = []
+    interests: List[InterestResponse]
+    skills: List[SkillResponse]
+    subscriptions: List[SubscriptionResponse]
     
     @computed_field
     @property
