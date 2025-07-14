@@ -46,6 +46,7 @@ class ChildService:
         if not child:
             return None
         
+        self._repository._db.refresh(child)
         return ChildResponse.model_validate(child)
     
     def update_child(self, child_id: int, update_data: ChildUpdate) -> Optional[ChildResponse]:
