@@ -7,7 +7,8 @@ class DeliveryInfoBase(BaseModel):
     """Базовая схема для адреса доставки"""
     name: str = Field(..., description="Название адреса (Дом, Работа, и т.д.)")
     address: str = Field(..., description="Полный адрес доставки")
-    delivery_time_preference: Optional[str] = Field(None, description="Предпочтительное время доставки")
+    date: str = Field(..., description="Дата доставки")
+    time: str = Field(..., description="Предпочтительное время доставки")
     courier_comment: Optional[str] = Field(None, description="Комментарий для курьера")
 
 
@@ -20,7 +21,8 @@ class DeliveryInfoUpdate(BaseModel):
     """Схема для обновления адреса доставки"""
     name: Optional[str] = Field(None, description="Название адреса")
     address: Optional[str] = Field(None, description="Полный адрес доставки")
-    delivery_time_preference: Optional[str] = Field(None, description="Предпочтительное время доставки")
+    date: Optional[str] = Field(None, description="Дата доставки")
+    time: Optional[str] = Field(None, description="Предпочтительное время доставки")
     courier_comment: Optional[str] = Field(None, description="Комментарий для курьера")
 
 
