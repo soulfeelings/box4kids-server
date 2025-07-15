@@ -37,6 +37,10 @@ class AuthResponse(BaseModel):
     refresh_token: Optional[str] = None
 
 
+class RefreshTokenRequest(BaseModel):
+    refresh_token: str = Field(..., description="Refresh токен для обновления")
+
+
 class UserFromToken(BaseModel):
     """Пользователь из JWT токена - без запроса к БД"""
     id: int

@@ -3,10 +3,12 @@ from sqlalchemy.orm import Session
 from functools import lru_cache
 from core.database import get_db
 from services import AuthService
+from services.user_service import UserService
 from services.otp_service import OTPService
 from services.otp_factory import get_otp_storage
+from services.jwt_service import get_jwt_service
 from schemas import PhoneRequest, OTPRequest, UserResponse, DevGetCodeResponse
-from schemas.auth_schemas import AuthResponse
+from schemas.auth_schemas import AuthResponse, RefreshTokenRequest, TokenResponse
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -21,6 +23,10 @@ def get_otp_service() -> OTPService:
 def get_auth_service(db: Session = Depends(get_db)) -> AuthService:
     otp_service = get_otp_service()
     return AuthService(db, otp_service)
+
+
+def get_user_service(db: Session = Depends(get_db)) -> UserService:
+    return UserService(db)
 
 
 @router.post("/send-otp")
@@ -72,3 +78,38 @@ async def verify_otp(
         user=UserResponse.model_validate(user),
         **tokens
     ) 
+
+
+@router.post("/refresh", response_model=TokenResponse)
+async def refresh_token(
+    request: RefreshTokenRequest,
+    auth_service: AuthService = Depends(get_auth_service),
+    user_service: UserService = Depends(get_user_service)
+):
+    """Обновляет access токен используя refresh токен"""
+    jwt_service = get_jwt_service()
+    
+    # Проверяем refresh токен
+    payload = jwt_service.verify_token(request.refresh_token)
+    if not payload:
+        raise HTTPException(status_code=401, detail="Недействительный refresh токен")
+    
+    # Проверяем тип токена
+    if payload.get("type") != "refresh":
+        raise HTTPException(status_code=401, detail="Неверный тип токена")
+    
+    # Извлекаем ID пользователя
+    try:
+        user_id = int(payload["sub"])
+    except (KeyError, ValueError):
+        raise HTTPException(status_code=401, detail="Недействительный refresh токен")
+    
+    # Получаем пользователя из БД
+    user = user_service.get_user_by_id(user_id)
+    if not user:
+        raise HTTPException(status_code=401, detail="Пользователь не найден")
+    
+    # Создаем новые токены
+    new_tokens = auth_service.create_tokens_for_user(user)
+    
+    return TokenResponse(**new_tokens) 
