@@ -12,6 +12,8 @@ from typing import List
 from datetime import datetime, timedelta
 from jose import jwt, JWTError
 from pydantic import BaseModel
+from schemas.admin_schemas import AdminUserResponse, ChildWithBoxesResponse
+from schemas.toy_box_schemas import ToyBoxResponse, NextBoxResponse, ToyBoxItemResponse, NextBoxItemResponse
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
 
@@ -55,7 +57,7 @@ async def admin_login(request: AdminLoginRequest):
         expires_in=int((expiration - datetime.utcnow()).total_seconds())
     )
 
-@router.get("/users")
+@router.get("/users", response_model=List[AdminUserResponse])
 async def get_all_users(
     current_admin: dict = Depends(get_current_admin),
     user_service: UserService = Depends(lambda db=Depends(get_db): UserService(db)),
@@ -87,29 +89,77 @@ async def get_all_users(
             current_box = toy_box_service.get_current_box_by_child(child.id)
             next_box = toy_box_service.generate_next_box_for_child(child.id)
             
-            child_data = {
-                "id": child.id,
-                "name": child.name,
-                "date_of_birth": child.date_of_birth,
-                "gender": child.gender,
-                "has_limitations": child.has_limitations,
-                "comment": child.comment,
-                "current_box": current_box,
-                "next_box": next_box
-            }
+            # Преобразуем current_box в схему
+            current_box_response = None
+            if current_box:
+                current_box_items = []
+                if hasattr(current_box, 'items') and current_box.items:
+                    for item in current_box.items:
+                        current_box_items.append(ToyBoxItemResponse(
+                            id=item.id,
+                            toy_category_id=item.toy_category_id,
+                            quantity=item.quantity
+                        ))
+                
+                current_box_response = ToyBoxResponse(
+                    id=current_box.id,
+                    subscription_id=current_box.subscription_id,
+                    child_id=current_box.child_id,
+                    delivery_info_id=current_box.delivery_info_id,
+                    status=current_box.status,
+                    delivery_date=current_box.delivery_date,
+                    return_date=current_box.return_date,
+                    delivery_time=current_box.delivery_time,
+                    return_time=current_box.return_time,
+                    created_at=current_box.created_at,
+                    items=current_box_items
+                )
+            
+            # Преобразуем next_box в схему
+            next_box_response = None
+            if next_box:
+                next_box_items = []
+                if next_box.items:
+                    for item in next_box.items:
+                        next_box_items.append(NextBoxItemResponse(
+                            category_id=item.category_id,
+                            category_name=item.category_name,
+                            category_icon=item.category_icon,
+                            quantity=item.quantity
+                        ))
+                
+                next_box_response = NextBoxResponse(
+                    items=next_box_items,
+                    delivery_date=next_box.delivery_date,
+                    return_date=next_box.return_date,
+                    delivery_time=next_box.delivery_time,
+                    return_time=next_box.return_time,
+                    message=next_box.message
+                )
+            
+            child_data = ChildWithBoxesResponse(
+                id=child.id,
+                name=child.name,
+                date_of_birth=child.date_of_birth.isoformat(),
+                gender=child.gender.value,
+                has_limitations=child.has_limitations,
+                comment=child.comment,
+                current_box=current_box_response,
+                next_box=next_box_response
+            )
             children_with_boxes.append(child_data)
         
         # Формируем полную информацию о пользователе
-        user_data = {
-            "id": user.id,
-            "phone_number": user.phone_number,
-            "name": user.name,
-            "role": user.role,
-            "created_at": user.created_at,
-            "children": children_with_boxes,
-            "delivery_addresses": delivery_addresses,
-            "subscriptions": user_subscriptions
-        }
+        user_data = AdminUserResponse(
+            id=user.id,
+            phone_number=user.phone_number,
+            name=user.name,
+            role=user.role.value,
+            created_at=user.created_at,
+            children=children_with_boxes,
+            delivery_addresses=delivery_addresses,
+            subscriptions=user_subscriptions
+        )
         
         result.append(user_data)
     
