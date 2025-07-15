@@ -4,6 +4,8 @@ from repositories.subscription_repository import SubscriptionRepository
 from services.mock_payment_gateway import MockPaymentGateway
 from models.payment import Payment, PaymentStatus
 from typing import List, Optional, Dict
+from models.subscription import Subscription
+from schemas.payment_schemas import PaymentResult, PaymentStatusEnum
 
 # Для прямого вызова создания ToyBox
 from services.toy_box_service import ToyBoxService
@@ -53,6 +55,8 @@ class PaymentService:
     def create_batch_payment(self, subscription_ids: List[int]) -> Dict:
         """Создает пакетный платеж для нескольких подписок"""
         
+        print(f"📦 Создаем пакетный платеж для подписок: {subscription_ids}")
+        
         # Получаем подписки
         subscriptions = []
         for subscription_id in subscription_ids:
@@ -62,6 +66,7 @@ class PaymentService:
             if subscription.payment_id:
                 raise ValueError(f"Подписка с ID {subscription_id} уже привязана к платежу")
             subscriptions.append(subscription)
+            print(f"  📋 Подписка {subscription_id}: план {subscription.plan_id}, цена {subscription.individual_price}")
         
         # Проверяем что все подписки принадлежат одному пользователю
         user_ids = set(sub.child.parent_id for sub in subscriptions)
@@ -72,6 +77,7 @@ class PaymentService:
         
         # Рассчитываем общую сумму
         total_amount = sum(sub.individual_price for sub in subscriptions)
+        print(f"💰 Общая сумма: {total_amount}")
         
         # Создаем платеж
         payment_response = self.create_payment(user_id, total_amount)
@@ -84,6 +90,99 @@ class PaymentService:
         
         payment_response["subscription_count"] = len(subscriptions)
         return payment_response
+
+    async def create_and_process_payment(self, subscription_ids: List[int]) -> PaymentResult:
+        """Создает платеж и сразу его обрабатывает"""
+        
+        print(f"🔍 Обрабатываем подписки: {subscription_ids}")
+        
+        # Проверяем есть ли уже платеж с этим набором подписок
+        existing_payment = self._find_payment_by_subscriptions(subscription_ids)
+        
+        # Рассчитываем текущую сумму подписок
+        current_total = self._calculate_subscriptions_total(subscription_ids)
+        
+        if existing_payment:
+            print(f"✅ Найден существующий платеж {existing_payment.id} с суммой {existing_payment.amount}")
+            print(f"💰 Текущая сумма подписок: {current_total}")
+            
+            # Проверяем соответствие суммы
+            if abs(existing_payment.amount - current_total) < 0.01:  # Учитываем погрешность float
+                payment_id = existing_payment.id
+                amount = existing_payment.amount
+                print(f"✅ Сумма платежа соответствует текущим ценам")
+            else:
+                print(f"⚠️ Сумма платежа не соответствует текущим ценам, создаем новый")
+                # Отвязываем подписки от старого платежа
+                self._unlink_subscriptions_from_payment(subscription_ids)
+                # Создаем новый пакетный платеж
+                payment_response = self.create_batch_payment(subscription_ids)
+                payment_id = payment_response["payment_id"]
+                amount = payment_response["amount"]
+                print(f"💰 Создан новый платеж {payment_id} с суммой {amount}")
+        else:
+            print(f"🆕 Создаем новый платеж для подписок {subscription_ids}")
+            # Создаем новый пакетный платеж
+            payment_response = self.create_batch_payment(subscription_ids)
+            payment_id = payment_response["payment_id"]
+            amount = payment_response["amount"]
+            print(f"💰 Создан платеж {payment_id} с суммой {amount}")
+        
+        # Обрабатываем платеж
+        success = await self.process_payment_async(payment_id)
+        
+        if success:
+            return PaymentResult(
+                status=PaymentStatusEnum.SUCCESS,
+                message="Платеж успешно обработан, подписки активированы",
+                payment_id=payment_id,
+                amount=amount
+            )
+        else:
+            return PaymentResult(
+                status=PaymentStatusEnum.FAILED,
+                message="Платеж не прошел",
+                payment_id=payment_id,
+                amount=amount
+            )
+
+    def _find_payment_by_subscriptions(self, subscription_ids: List[int]) -> Optional[Payment]:
+        """Находит платеж с точно таким же набором подписок"""
+        # Получаем все платежи, которые содержат хотя бы одну из подписок
+        payments = self.db.query(Payment).join(
+            Subscription, Payment.id == Subscription.payment_id
+        ).filter(
+            Subscription.id.in_(subscription_ids)
+        ).all()
+        
+        # Проверяем каждый платеж на точное совпадение подписок
+        for payment in payments:
+            payment_subscription_ids = [
+                sub.id for sub in self.subscription_repo.get_by_payment_id(payment.id)
+            ]
+            
+            # Проверяем что наборы подписок идентичны
+            if set(payment_subscription_ids) == set(subscription_ids):
+                return payment
+        
+        return None
+
+    def _calculate_subscriptions_total(self, subscription_ids: List[int]) -> float:
+        """Рассчитывает общую сумму подписок"""
+        total = 0.0
+        for subscription_id in subscription_ids:
+            subscription = self.subscription_repo.get_by_id(subscription_id)
+            if subscription:
+                total += subscription.individual_price
+        return total
+
+    def _unlink_subscriptions_from_payment(self, subscription_ids: List[int]) -> None:
+        """Отвязывает подписки от платежа"""
+        for subscription_id in subscription_ids:
+            subscription = self.subscription_repo.get_by_id(subscription_id)
+            if subscription and subscription.payment_id:
+                subscription.payment_id = None  # type: ignore
+                self.db.flush()
 
     async def process_payment_async(self, payment_id: int, simulate_delay: bool = True) -> bool:
         """Асинхронная обработка платежа через внешний API"""

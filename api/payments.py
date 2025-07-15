@@ -4,39 +4,20 @@ from core.database import get_db
 from core.security import get_current_user
 from services.payment_service import PaymentService
 from schemas.auth_schemas import UserFromToken
-from pydantic import BaseModel
+from schemas.payment_schemas import (
+    PaymentResult,
+    BatchPaymentCreateRequest,
+    BatchPaymentResponse,
+    ProcessPaymentResponse,
+    PaymentReturnRequest,
+    PaymentWebhookRequest,
+    ProcessSubscriptionsRequest,
+    ProcessSubscriptionsResponse,
+)
 from typing import List
 
 router = APIRouter(prefix="/payments", tags=["Payments"])
 
-
-class PaymentReturnRequest(BaseModel):
-    external_payment_id: str
-    status: str = "success"  # success или failed
-
-
-class PaymentWebhookRequest(BaseModel):
-    external_payment_id: str
-    status: str  # succeeded, failed, refunded, pending
-
-
-class BatchPaymentCreateRequest(BaseModel):
-    subscription_ids: List[int]
-
-
-class BatchPaymentResponse(BaseModel):
-    payment_id: int
-    external_payment_id: str
-    payment_url: str
-    amount: float
-    currency: str
-    subscription_count: int
-    message: str
-
-
-class ProcessPaymentResponse(BaseModel):
-    status: str  # "success" или "failed"
-    message: str
 
 def get_payment_service(db: Session = Depends(get_db)) -> PaymentService:
     return PaymentService(db)
@@ -87,6 +68,30 @@ async def process_payment(
             return ProcessPaymentResponse(status="failed", message="Платеж не прошел")
     except Exception as e:
         raise HTTPException(status_code=500, detail="Ошибка обработки платежа")
+
+
+@router.post("/process-subscriptions", response_model=ProcessSubscriptionsResponse)
+async def process_subscriptions(
+    request: ProcessSubscriptionsRequest,
+    current_user: UserFromToken = Depends(get_current_user),
+    payment_service: PaymentService = Depends(get_payment_service)
+):
+    """Создает платеж и сразу его обрабатывает для указанных подписок"""
+    try:
+        # Создаем платеж и сразу обрабатываем его
+        result = await payment_service.create_and_process_payment(request.subscription_ids)
+        
+        return ProcessSubscriptionsResponse(
+            status=result.status,
+            message=result.message,
+            payment_id=result.payment_id,
+            amount=result.amount
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        print(f"Ошибка при обработке подписок: {e}")
+        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
 
 
 @router.post("/return")
