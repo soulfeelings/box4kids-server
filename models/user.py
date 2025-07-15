@@ -23,7 +23,7 @@ class User(Base):
     phone_number: Mapped[str] = mapped_column(String, unique=True, index=True)
     name: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     role: Mapped[UserRole] = mapped_column(Enum(UserRole), default=UserRole.USER)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=func.now())
     
     # Relationships
     children: Mapped[List["Child"]] = relationship("Child", back_populates="parent")

@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from typing import List, Optional
 from pydantic import BaseModel
 from core.config import settings
+from models.child import Child
 
 
 class SubscriptionUpdateFields(BaseModel):
@@ -58,9 +59,9 @@ class SubscriptionRepository:
     def get_by_user_id(self, user_id: int) -> List[Subscription]:
         """Получает все подписки пользователя (через детей)"""
         return self.db.query(Subscription).join(
-            Subscription.child
+            Child, Subscription.child_id == Child.id
         ).filter(
-            Subscription.child.has(parent_id=user_id)
+            Child.parent_id == user_id
         ).order_by(Subscription.created_at.desc()).all()
 
     def get_pending_payment_by_user_id(self, user_id: int) -> List[Subscription]:
@@ -122,7 +123,7 @@ class SubscriptionRepository:
         """Получает все активные подписки"""
         return self.db.query(Subscription).join(Payment).filter(
             Payment.status == PaymentStatus.COMPLETED,
-            Subscription.expires_at > datetime.utcnow()
+            Subscription.expires_at > datetime.now(timezone.utc)
         ).all()
 
     def get_expiring_subscriptions(self, days_ahead: Optional[int] = None) -> List[Subscription]:

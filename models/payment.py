@@ -22,7 +22,7 @@ class Payment(Base):
     status: Mapped[PaymentStatus] = mapped_column(Enum(PaymentStatus), default=PaymentStatus.PENDING)
     user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"))
     external_payment_id: Mapped[str] = mapped_column(String, nullable=True)  # ID из внешнего сервиса
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=func.now())
     
     # Relationships
     user = relationship("User", back_populates="payments")

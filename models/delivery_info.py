@@ -14,7 +14,7 @@ class DeliveryInfo(Base):
     date: Mapped[date_type] = mapped_column(Date, nullable=False)  # Дата доставки
     time: Mapped[str] = mapped_column(String, nullable=False)  # Предпочтительное время доставки
     courier_comment: Mapped[str] = mapped_column(Text, nullable=True)  # Комментарий для курьера
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=func.now())
     
     # Relationships
     user = relationship("User", back_populates="delivery_addresses") 

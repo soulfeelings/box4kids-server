@@ -26,7 +26,7 @@ class ToyBox(Base):
     return_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
     delivery_time: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     return_time: Mapped[Optional[str]] = mapped_column(String, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=func.now())
 
     # Состав набора
     items = relationship("ToyBoxItem", back_populates="box", cascade="all, delete-orphan")
@@ -51,6 +51,6 @@ class ToyBoxReview(Base):
     user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False)
     rating: Mapped[int] = mapped_column(Integer, nullable=False)
     comment: Mapped[str] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=func.now())
 
     box = relationship("ToyBox", back_populates="reviews") 

@@ -21,7 +21,7 @@ class Child(Base):
     comment: Mapped[str] = mapped_column(Text, nullable=True)
     parent_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"))
     is_deleted: Mapped[bool] = mapped_column(Boolean, default=False)
-    deleted_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
+    deleted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
     
     # Relationships
     parent = relationship("User", back_populates="children")

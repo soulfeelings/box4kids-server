@@ -23,8 +23,8 @@ class Subscription(Base):
     payment_id: Mapped[int] = mapped_column(Integer, ForeignKey("payments.id"), nullable=True)
     discount_percent: Mapped[float] = mapped_column(Float, default=0.0)
     individual_price: Mapped[float] = mapped_column(Float, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
-    expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=func.now())
     auto_renewal: Mapped[bool] = mapped_column(default=False)
     
     # Relationships

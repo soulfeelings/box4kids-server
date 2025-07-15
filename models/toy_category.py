@@ -12,4 +12,4 @@ class ToyCategory(Base):
     name: Mapped[str] = mapped_column(String, nullable=False, unique=True)
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     icon: Mapped[Optional[str]] = mapped_column(String, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now()) 
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=func.now()) 
