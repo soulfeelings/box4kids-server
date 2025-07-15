@@ -1,9 +1,10 @@
 from sqlalchemy.orm import Session
 from models.subscription import Subscription
 from models.payment import Payment, PaymentStatus
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional
 from pydantic import BaseModel
+from core.config import settings
 
 
 class SubscriptionUpdateFields(BaseModel):
@@ -51,7 +52,7 @@ class SubscriptionRepository:
         return self.db.query(Subscription).join(Payment).filter(
             Subscription.child_id == child_id,
             Payment.status == PaymentStatus.COMPLETED,
-            Subscription.expires_at > datetime.utcnow()
+            Subscription.expires_at > datetime.now(timezone.utc)
         ).first()
 
     def get_by_user_id(self, user_id: int) -> List[Subscription]:
@@ -124,15 +125,19 @@ class SubscriptionRepository:
             Subscription.expires_at > datetime.utcnow()
         ).all()
 
-    def get_expiring_subscriptions(self, days_ahead: int = 3) -> List[Subscription]:
-        """Получает подписки истекающие в ближайшие N дней"""
+    def get_expiring_subscriptions(self, days_ahead: Optional[int] = None) -> List[Subscription]:
+        """Получает подписки, которые истекают в ближайшие N дней"""
         from datetime import timedelta
-        future_date = datetime.utcnow() + timedelta(days=days_ahead)
+        
+        if days_ahead is None:
+            days_ahead = settings.SUBSCRIPTION_EXPIRING_NOTIFICATION_DAYS
+            
+        future_date = datetime.now(timezone.utc) + timedelta(days=days_ahead)
         
         return self.db.query(Subscription).join(Payment).filter(
             Payment.status == PaymentStatus.COMPLETED,
             Subscription.expires_at <= future_date,
-            Subscription.expires_at > datetime.utcnow()
+            Subscription.expires_at > datetime.now(timezone.utc)
         ).all()
 
     def has_non_cancelled_subscription(self, child_id: int) -> bool:

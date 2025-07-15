@@ -6,8 +6,9 @@ from repositories.delivery_info_repository import DeliveryInfoRepository
 from models.subscription import Subscription
 from services.payment_service import PaymentService
 from schemas.subscription_schemas import SubscriptionCreateRequest, SubscriptionResponse, SubscriptionUpdateRequest, SubscriptionWithDetailsResponse
+from dateutil.relativedelta import relativedelta
 from typing import List, Optional
-from datetime import datetime, timedelta
+from datetime import datetime, timezone
 
 
 class SubscriptionService:
@@ -83,7 +84,7 @@ class SubscriptionService:
             delivery_info_id=request.delivery_info_id,
             discount_percent=discount_percent,
             individual_price=plan.price_monthly,
-            expires_at=datetime.utcnow() + timedelta(days=30)
+            expires_at=datetime.now(timezone.utc) + relativedelta(months=1)
         )
         
         subscription = self.subscription_repo.create(subscription)

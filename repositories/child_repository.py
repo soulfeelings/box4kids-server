@@ -4,7 +4,7 @@ from models.child import Child
 from models.interest import Interest
 from models.skill import Skill
 from core.interfaces import IChildRepository
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 class ChildRepository(IChildRepository):
@@ -40,7 +40,7 @@ class ChildRepository(IChildRepository):
             return False
         
         child.is_deleted = True
-        child.deleted_at = datetime.utcnow()
+        child.deleted_at = datetime.now(timezone.utc)
         self._db.flush()  # Только flush для применения изменений
         return True
     

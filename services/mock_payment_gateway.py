@@ -1,7 +1,7 @@
 import uuid
 import random
 import asyncio
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Dict
 
 
@@ -23,7 +23,7 @@ class MockPaymentGateway:
             "amount": amount,
             "currency": currency,
             "payment_url": f"{self.base_url}/pay/{external_payment_id}",
-            "expires_at": (datetime.utcnow() + timedelta(hours=1)).isoformat(),
+            "expires_at": (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat(),
             "return_url": return_url,
             "notification_url": notification_url
         }
@@ -45,7 +45,7 @@ class MockPaymentGateway:
         return {
             "id": external_payment_id,
             "status": "succeeded" if success else "failed",
-            "processed_at": datetime.utcnow().isoformat()
+            "processed_at": datetime.now(timezone.utc).isoformat()
         }
     
     def process_payment_sync(self, external_payment_id: str) -> Dict:
@@ -55,7 +55,7 @@ class MockPaymentGateway:
         return {
             "id": external_payment_id,
             "status": "succeeded" if success else "failed",
-            "processed_at": datetime.utcnow().isoformat()
+            "processed_at": datetime.now(timezone.utc).isoformat()
         }
     
     def simulate_user_return(self, external_payment_id: str, status: str = "success") -> Dict:
@@ -67,7 +67,7 @@ class MockPaymentGateway:
             "status": gateway_status,
             "return_url_visited": True,
             "user_action": status,
-            "returned_at": datetime.utcnow().isoformat()
+            "returned_at": datetime.now(timezone.utc).isoformat()
         }
     
     def simulate_webhook(self, external_payment_id: str, status: str) -> Dict:
@@ -76,7 +76,7 @@ class MockPaymentGateway:
             "event": "payment.status.changed",
             "payment_id": external_payment_id,
             "status": status,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "signature": f"mock_signature_{uuid.uuid4().hex[:8]}"
         }
     
@@ -89,7 +89,7 @@ class MockPaymentGateway:
         return {
             "id": external_payment_id,
             "status": random_status,
-            "checked_at": datetime.utcnow().isoformat()
+            "checked_at": datetime.now(timezone.utc).isoformat()
         }
     
     def refund_payment(self, external_payment_id: str, amount: float = None) -> Dict:
@@ -101,5 +101,5 @@ class MockPaymentGateway:
             "payment_id": external_payment_id,
             "status": "succeeded",
             "amount": amount,
-            "refunded_at": datetime.utcnow().isoformat()
+            "refunded_at": datetime.now(timezone.utc).isoformat()
         } 

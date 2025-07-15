@@ -1,8 +1,7 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional, Dict, Any
 from functools import lru_cache
 from jose import JWTError, jwt
-from passlib.context import CryptContext
 from core.config import settings
 
 
@@ -17,7 +16,7 @@ class JWTService:
     
     def create_access_token(self, user_id: int, phone_number: str, name: Optional[str] = None) -> str:
         """Создает access token для пользователя"""
-        expire = datetime.utcnow() + timedelta(minutes=self.access_token_expire_minutes)
+        expire = datetime.now(timezone.utc) + timedelta(minutes=self.access_token_expire_minutes)
         to_encode = {
             "sub": str(user_id),
             "phone": phone_number,
@@ -29,7 +28,7 @@ class JWTService:
     
     def create_refresh_token(self, user_id: int) -> str:
         """Создает refresh token для пользователя"""
-        expire = datetime.utcnow() + timedelta(days=self.refresh_token_expire_days)
+        expire = datetime.now(timezone.utc) + timedelta(days=self.refresh_token_expire_days)
         to_encode = {
             "sub": str(user_id),
             "exp": expire,
@@ -65,7 +64,7 @@ class JWTService:
         if not exp:
             return True
         
-        return datetime.fromtimestamp(exp) < datetime.utcnow()
+        return datetime.fromtimestamp(exp) < datetime.now(timezone.utc)
 
 
 @lru_cache()

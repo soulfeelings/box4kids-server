@@ -1,6 +1,6 @@
-from sqlalchemy import Column, Integer, Float, ForeignKey, DateTime, Enum
+from sqlalchemy import Integer, DateTime, Float, ForeignKey, func
 from sqlalchemy.orm import relationship, Mapped, mapped_column
-from datetime import datetime
+from datetime import datetime, timezone
 import enum
 from core.database import Base
 
@@ -23,7 +23,7 @@ class Subscription(Base):
     payment_id: Mapped[int] = mapped_column(Integer, ForeignKey("payments.id"), nullable=True)
     discount_percent: Mapped[float] = mapped_column(Float, default=0.0)
     individual_price: Mapped[float] = mapped_column(Float, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
     expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
     auto_renewal: Mapped[bool] = mapped_column(default=False)
     
@@ -46,12 +46,12 @@ class Subscription(Base):
         return (
             self.payment.status.value == "completed" and 
             self.expires_at and
-            self.expires_at > datetime.utcnow()
+            self.expires_at > datetime.now(timezone.utc)
         )
     
     @property
     def status(self) -> SubscriptionStatus:
-        """Определяет статус подписки на основе платежа и времени"""
+        """Получает статус подписки"""
         if not self.payment:
             return SubscriptionStatus.PENDING_PAYMENT
         
@@ -59,12 +59,22 @@ class Subscription(Base):
             return SubscriptionStatus.PENDING_PAYMENT
         elif self.payment.status.value == "failed":
             return SubscriptionStatus.CANCELLED
+        elif self.payment.status.value == "refunded":
+            return SubscriptionStatus.CANCELLED
         elif self.payment.status.value == "completed":
-            if self.expires_at and self.expires_at <= datetime.utcnow():
+            if self.expires_at and self.expires_at <= datetime.now(timezone.utc):
                 return SubscriptionStatus.EXPIRED
             else:
                 return SubscriptionStatus.ACTIVE
-        elif self.payment.status.value == "refunded":
-            return SubscriptionStatus.CANCELLED
         else:
-            return SubscriptionStatus.PENDING_PAYMENT 
+            return SubscriptionStatus.PENDING_PAYMENT
+    
+    def renew(self, months: int = 1):
+        """Продлевает подписку на указанное количество месяцев"""
+        if not self.expires_at:
+            # Если дата истечения не установлена, устанавливаем на текущее время
+            self.expires_at = datetime.now(timezone.utc)
+        
+        # Добавляем месяцы к дате истечения
+        from dateutil.relativedelta import relativedelta
+        self.expires_at += relativedelta(months=months) 

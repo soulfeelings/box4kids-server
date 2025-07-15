@@ -1,8 +1,9 @@
-from sqlalchemy import Column, Integer, ForeignKey, DateTime, Enum, String, Text
+from sqlalchemy import Integer, ForeignKey, DateTime, Enum, String, Text, Date, func
 from sqlalchemy.orm import relationship, Mapped, mapped_column
-from datetime import datetime
+from datetime import date, datetime
 import enum
 from core.database import Base
+from typing import Optional
 
 class ToyBoxStatus(enum.Enum):
     """Статусы набора игрушек в процессе аренды"""
@@ -19,11 +20,13 @@ class ToyBox(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     subscription_id: Mapped[int] = mapped_column(Integer, ForeignKey("subscriptions.id"), nullable=False)
     child_id: Mapped[int] = mapped_column(Integer, ForeignKey("children.id"), nullable=False)
-    delivery_info_id: Mapped[int] = mapped_column(Integer, ForeignKey("delivery_info.id"), nullable=True)
+    delivery_info_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("delivery_info.id"), nullable=True)
     status: Mapped[ToyBoxStatus] = mapped_column(Enum(ToyBoxStatus), default=ToyBoxStatus.PLANNED)
-    delivery_date: Mapped[datetime] = mapped_column(DateTime, nullable=True)
-    return_date: Mapped[datetime] = mapped_column(DateTime, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    delivery_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
+    return_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
+    delivery_time: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    return_time: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
 
     # Состав набора
     items = relationship("ToyBoxItem", back_populates="box", cascade="all, delete-orphan")
@@ -48,6 +51,6 @@ class ToyBoxReview(Base):
     user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False)
     rating: Mapped[int] = mapped_column(Integer, nullable=False)
     comment: Mapped[str] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
 
     box = relationship("ToyBox", back_populates="reviews") 

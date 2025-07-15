@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field
 from typing import List, Optional
-from datetime import datetime
+from datetime import datetime, date
 from models.toy_box import ToyBoxStatus
 
 
@@ -33,8 +33,10 @@ class ToyBoxResponse(BaseModel):
     child_id: int
     delivery_info_id: Optional[int] = None
     status: ToyBoxStatus
-    delivery_date: Optional[datetime] = None
-    return_date: Optional[datetime] = None
+    delivery_date: Optional[date] = None
+    return_date: Optional[date] = None
+    delivery_time: Optional[str] = None
+    return_time: Optional[str] = None
     created_at: datetime
     items: List[ToyBoxItemResponse] = []
     reviews: List[ToyBoxReviewResponse] = []
@@ -54,8 +56,10 @@ class NextBoxItemResponse(BaseModel):
 class NextBoxResponse(BaseModel):
     """Следующий набор (генерируется на лету)"""
     items: List[NextBoxItemResponse]
-    delivery_date: Optional[datetime] = None
-    return_date: Optional[datetime] = None
+    delivery_date: Optional[date] = None
+    return_date: Optional[date] = None
+    delivery_time: Optional[str] = None
+    return_time: Optional[str] = None
     message: str
 
 

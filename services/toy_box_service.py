@@ -4,11 +4,13 @@ from repositories.subscription_repository import SubscriptionRepository
 from repositories.child_repository import ChildRepository
 from repositories.plan_toy_configuration_repository import PlanToyConfigurationRepository
 from repositories.toy_category_repository import ToyCategoryRepository
-from models.toy_box import ToyBox, ToyBoxItem, ToyBoxReview, ToyBoxStatus
+from repositories.delivery_info_repository import DeliveryInfoRepository
+from models.toy_box import ToyBox, ToyBoxReview, ToyBoxStatus
 from models.subscription import SubscriptionStatus
 from schemas.toy_box_schemas import NextBoxResponse, NextBoxItemResponse
+from core.config import settings
 from typing import List, Optional, Dict, Any
-from datetime import datetime, timedelta
+from datetime import timedelta, date
 
 class ToyBoxService:
     def __init__(self, db: Session):
@@ -18,6 +20,7 @@ class ToyBoxService:
         self.child_repo = ChildRepository(db)
         self.config_repo = PlanToyConfigurationRepository(db)
         self.category_repo = ToyCategoryRepository(db)
+        self.delivery_repo = DeliveryInfoRepository(db)
 
     def create_box_for_subscription(self, subscription_id: int) -> ToyBox:
         """Создать набор для подписки на основе плана"""
@@ -34,14 +37,32 @@ class ToyBoxService:
         if not plan_configs:
             raise ValueError(f"Конфигурация для плана {subscription.plan_id} не найдена")
 
-        # Создаем набор
+        # Получаем информацию о доставке
+        delivery_info = None
+        delivery_time = None
+        if subscription.delivery_info_id:
+            delivery_info = self.delivery_repo.get_by_id(subscription.delivery_info_id)
+            if delivery_info:
+                delivery_time = delivery_info.time
+
+        # Создаем набор с использованием конфигурации
+        # Если есть delivery_info с датой, используем её как базу
+        if delivery_info and delivery_info.date:
+            delivery_date = delivery_info.date
+        else:
+            delivery_date = date.today() + timedelta(days=settings.INITIAL_DELIVERY_PERIOD)
+        
+        return_date = delivery_date + timedelta(days=settings.RENTAL_PERIOD)
+        
         box_data = {
             "subscription_id": subscription_id,
             "child_id": subscription.child_id,
             "delivery_info_id": subscription.delivery_info_id,
             "status": ToyBoxStatus.PLANNED,
-            "delivery_date": datetime.utcnow() + timedelta(days=7),  # Через неделю
-            "return_date": datetime.utcnow() + timedelta(days=21),   # Через 3 недели
+            "delivery_date": delivery_date,
+            "return_date": return_date,
+            "delivery_time": delivery_time,
+            "return_time": delivery_time,  # Используем то же время для возврата
         }
         
         box = self.box_repo.create_box(box_data)
@@ -92,36 +113,43 @@ class ToyBoxService:
         if not plan_configs:
             return None
 
-        # Рассчитываем даты
+        # Рассчитываем даты и берем время из текущего набора
         current_box = self.get_current_box_by_child(child_id)
         print(f"generate_next_box_for_child: Current box: {current_box}")
+        
+        # Рассчитываем даты и время ТОЛЬКО на основе текущего набора
         if current_box and current_box.return_date:
-            next_delivery = current_box.return_date + timedelta(days=1)
-            next_return = next_delivery + timedelta(days=14)
+            # Есть текущий набор - можем рассчитать следующий
+            next_delivery_date = current_box.return_date + timedelta(days=settings.NEXT_DELIVERY_PERIOD)
+            next_return_date = next_delivery_date + timedelta(days=settings.RENTAL_PERIOD)
+            delivery_time = current_box.delivery_time
+            return_time = current_box.return_time
         else:
-            next_delivery = datetime.utcnow() + timedelta(days=7)
-            next_return = next_delivery + timedelta(days=14)
+            # Нет текущего набора - нельзя рассчитать даты
+            next_delivery_date = None
+            next_return_date = None
+            delivery_time = None
+            return_time = None
 
         # Формируем состав следующего набора
         items = []
         for config in plan_configs:
             category = self.category_repo.get_by_id(config.category_id)
-            print(f"generate_next_box_for_child: Category: {category}")
             if category:
-                item = NextBoxItemResponse(
-                    category_id=config.category_id,
-                    category_name=getattr(category, 'name'),
-                    category_icon=getattr(category, 'icon'),
+                items.append(NextBoxItemResponse(
+                    category_id=category.id,
+                    category_name=category.name,
+                    category_icon=category.icon,
                     quantity=config.quantity
-                )
-                items.append(item)
-                print(f"generate_next_box_for_child: Item: {item}")
+                ))
 
         next_box_response = NextBoxResponse(
             items=items,
-            delivery_date=next_delivery,
-            return_date=next_return,
-            message=f"Следующий набор для {child.name}"
+            delivery_date=next_delivery_date,
+            return_date=next_return_date,
+            delivery_time=delivery_time,
+            return_time=return_time,
+            message="Следующий набор будет создан после возврата текущего"
         )
         
         print(f"generate_next_box_for_child: Next box response: {next_box_response}")
