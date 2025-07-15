@@ -46,6 +46,68 @@ class AuthService:
         print(f"AuthService: Создан новый пользователь {phone}")
         return new_user
     
+    def initiate_phone_change(self, user_id: int, current_phone: str, current_code: str, new_phone: str) -> bool:
+        """Инициация смены номера телефона - проверяет текущий номер и отправляет OTP на новый"""
+        # Получаем пользователя
+        user = self.db.query(User).filter(User.id == user_id).first()
+        if not user:
+            print(f"AuthService: Пользователь с ID {user_id} не найден")
+            return False
+        
+        # Проверяем что текущий номер совпадает
+        if user.phone_number != current_phone:
+            print(f"AuthService: Неверный текущий номер {current_phone} для пользователя {user_id}")
+            return False
+        
+        # Проверяем OTP для текущего номера
+        if not self.otp_service.verify_code(current_phone, current_code):
+            print(f"AuthService: Неверный код {current_code} для текущего номера {current_phone}")
+            return False
+        
+        # Проверяем что новый номер не занят другим пользователем
+        existing_user = self.db.query(User).filter(User.phone_number == new_phone).first()
+        if existing_user and existing_user.id != user_id:
+            print(f"AuthService: Новый номер {new_phone} уже занят пользователем {existing_user.id}")
+            return False
+        
+        # Отправляем OTP на новый номер
+        success = self.otp_service.send_code(new_phone)
+        if success:
+            print(f"AuthService: OTP отправлен на новый номер {new_phone} для пользователя {user_id}")
+        else:
+            print(f"AuthService: Не удалось отправить OTP на новый номер {new_phone}")
+        
+        return success
+    
+    def confirm_phone_change(self, user_id: int, new_phone: str, new_code: str) -> Optional[User]:
+        """Подтверждение смены номера - проверяет OTP нового номера и обновляет пользователя"""
+        # Получаем пользователя
+        user = self.db.query(User).filter(User.id == user_id).first()
+        if not user:
+            print(f"AuthService: Пользователь с ID {user_id} не найден")
+            return None
+        
+        # Проверяем OTP для нового номера
+        if not self.otp_service.verify_code(new_phone, new_code):
+            print(f"AuthService: Неверный код {new_code} для нового номера {new_phone}")
+            return None
+        
+        # Проверяем что новый номер не занят другим пользователем
+        existing_user = self.db.query(User).filter(User.phone_number == new_phone).first()
+        if existing_user and existing_user.id != user_id:
+            print(f"AuthService: Новый номер {new_phone} уже занят пользователем {existing_user.id}")
+            return None
+        
+        # Обновляем номер телефона
+        old_phone = user.phone_number
+        user.phone_number = new_phone
+        self.db.add(user)
+        self.db.flush()
+        self.db.refresh(user)
+        
+        print(f"AuthService: Номер телефона изменен с {old_phone} на {new_phone} для пользователя {user_id}")
+        return user
+    
     def get_user_by_phone(self, phone: str) -> Optional[User]:
         """Получает пользователя по номеру телефона"""
         return self.db.query(User).filter(User.phone_number == phone).first()

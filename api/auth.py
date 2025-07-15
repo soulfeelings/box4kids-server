@@ -8,7 +8,15 @@ from services.otp_service import OTPService
 from services.otp_factory import get_otp_storage
 from services.jwt_service import get_jwt_service
 from schemas import PhoneRequest, OTPRequest, UserResponse, DevGetCodeResponse
-from schemas.auth_schemas import AuthResponse, RefreshTokenRequest, TokenResponse
+from schemas.auth_schemas import (
+    AuthResponse, 
+    RefreshTokenRequest, 
+    TokenResponse,
+    InitiatePhoneChangeRequest,
+    ConfirmPhoneChangeRequest,
+    UserFromToken
+)
+from core.security import get_current_user
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -78,6 +86,51 @@ async def verify_otp(
         user=UserResponse.model_validate(user),
         **tokens
     ) 
+
+
+@router.post("/change-phone/initiate")
+async def initiate_phone_change(
+    request: InitiatePhoneChangeRequest,
+    current_user: UserFromToken = Depends(get_current_user),
+    auth_service: AuthService = Depends(get_auth_service)
+):
+    """Инициация смены номера телефона - проверяет текущий номер и отправляет OTP на новый"""
+    success = auth_service.initiate_phone_change(
+        current_user.id,
+        current_user.phone_number,
+        request.current_phone_code,
+        request.new_phone
+    )
+    
+    if not success:
+        raise HTTPException(status_code=400, detail="Не удалось инициировать смену номера")
+    
+    return {"message": "Код отправлен на новый номер"}
+
+
+@router.post("/change-phone/confirm", response_model=AuthResponse)
+async def confirm_phone_change(
+    request: ConfirmPhoneChangeRequest,
+    current_user: UserFromToken = Depends(get_current_user),
+    auth_service: AuthService = Depends(get_auth_service)
+):
+    """Подтверждение смены номера - проверяет OTP нового номера и обновляет пользователя"""
+    user = auth_service.confirm_phone_change(
+        current_user.id,
+        request.new_phone,
+        request.new_phone_code
+    )
+    
+    if not user:
+        raise HTTPException(status_code=400, detail="Неверный код для нового номера")
+    
+    # Создаем новые токены с обновленным номером
+    tokens = auth_service.create_tokens_for_user(user)
+    
+    return AuthResponse(
+        user=UserResponse.model_validate(user),
+        **tokens
+    )
 
 
 @router.post("/refresh", response_model=TokenResponse)

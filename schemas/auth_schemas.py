@@ -11,6 +11,16 @@ class OTPRequest(BaseModel):
     code: str = Field(..., description="OTP код")
 
 
+class InitiatePhoneChangeRequest(BaseModel):
+    current_phone_code: str = Field(..., description="OTP код для текущего номера")
+    new_phone: str = Field(..., description="Новый номер телефона")
+
+
+class ConfirmPhoneChangeRequest(BaseModel):
+    new_phone: str = Field(..., description="Новый номер телефона")
+    new_phone_code: str = Field(..., description="OTP код для нового номера")
+
+
 class UserResponse(BaseModel):
     id: int
     phone_number: str
