@@ -27,6 +27,9 @@ class Settings(BaseSettings):
     # Subscription settings
     SUBSCRIPTION_EXPIRING_NOTIFICATION_DAYS: int = 3  # Уведомление за 3 дня
     
+    # Mock Payment Gateway settings
+    MOCK_PAYMENT_SUCCESS_RATE: float = float(os.getenv("MOCK_PAYMENT_SUCCESS_RATE", "0.05"))  # 5% успех для тестирования (0.95 для продакшна)
+    
     # App
     APP_NAME: str = "Box4Kids"
     DEBUG: bool = True

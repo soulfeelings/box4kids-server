@@ -58,7 +58,7 @@ class Subscription(Base):
         if self.payment.status.value == "pending":
             return SubscriptionStatus.PENDING_PAYMENT
         elif self.payment.status.value == "failed":
-            return SubscriptionStatus.CANCELLED
+            return SubscriptionStatus.PENDING_PAYMENT
         elif self.payment.status.value == "refunded":
             return SubscriptionStatus.CANCELLED
         elif self.payment.status.value == "completed":

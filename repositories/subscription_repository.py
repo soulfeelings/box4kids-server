@@ -41,11 +41,11 @@ class SubscriptionRepository:
             Subscription.child_id == child_id
         ).order_by(Subscription.created_at.desc()).all()
     
-    def get_by_payment_id(self, payment_id: int) -> Optional[Subscription]:
+    def get_by_payment_id(self, payment_id: int) -> List[Subscription]:
         """Получает все подписки привязанные к платежу"""
         return self.db.query(Subscription).filter(
             Subscription.payment_id == payment_id
-        ).first()
+        ).all()
 
     def get_active_by_child_id(self, child_id: int) -> Optional[Subscription]:
         """Получает активную подписку ребенка"""
@@ -169,11 +169,12 @@ class SubscriptionRepository:
         ).order_by(Subscription.created_at.desc()).all()
 
     def get_pending_payment_by_child_id(self, child_id: int) -> Optional[Subscription]:
-        """Получает неоплаченную подписку ребенка"""
-        return self.db.query(Subscription).filter(
+        """Получает неоплаченную подписку ребенка (включая с неудачными платежами)"""
+        return self.db.query(Subscription).outerjoin(Payment).filter(
             Subscription.child_id == child_id,
-            Subscription.payment_id.is_(None)
-        ).first()
+            # Подписки без платежа ИЛИ с неудачным платежом
+            (Subscription.payment_id.is_(None) | (Payment.status == PaymentStatus.FAILED))
+        ).order_by(Subscription.created_at.desc()).first()
 
     def update(self, subscription_id: int, update_data: SubscriptionUpdateFields) -> Optional[Subscription]:
         """Универсальный метод для обновления подписки"""

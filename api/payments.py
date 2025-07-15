@@ -33,6 +33,11 @@ class BatchPaymentResponse(BaseModel):
     subscription_count: int
     message: str
 
+
+class ProcessPaymentResponse(BaseModel):
+    status: str  # "success" или "failed"
+    message: str
+
 def get_payment_service(db: Session = Depends(get_db)) -> PaymentService:
     return PaymentService(db)
 
@@ -64,7 +69,7 @@ async def create_batch_payment(
         raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
 
 
-@router.post("/{payment_id}/process")
+@router.post("/{payment_id}/process", response_model=ProcessPaymentResponse)
 async def process_payment(
     payment_id: int,
     current_user: UserFromToken = Depends(get_current_user),
@@ -77,9 +82,9 @@ async def process_payment(
         
         if success:
             # Подписки активируются автоматически через property status
-            return {"status": "success", "message": "Платеж успешно обработан, подписки активированы"}
+            return ProcessPaymentResponse(status="success", message="Платеж успешно обработан, подписки активированы")
         else:
-            return {"status": "failed", "message": "Платеж не прошел"}
+            return ProcessPaymentResponse(status="failed", message="Платеж не прошел")
     except Exception as e:
         raise HTTPException(status_code=500, detail="Ошибка обработки платежа")
 

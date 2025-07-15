@@ -111,15 +111,16 @@ class PaymentService:
         if success:
             try:
                 # Получаем подписки связанные с этим платежом
-                subscription = self.subscription_repo.get_by_payment_id(payment_id)
+                subscriptions = self.subscription_repo.get_by_payment_id(payment_id)
                 
-                if not subscription:
-                    print(f"Subscription for payment {payment_id} not found")
+                if not subscriptions:
+                    print(f"Subscriptions for payment {payment_id} not found")
                     return False
                 
-                # Создаем ToyBox для подписки
-                toy_box = self.toy_box_service.create_box_for_subscription(subscription.id)
-                print(f"Created ToyBox {toy_box.id} for subscription {subscription.id}")
+                # Создаем ToyBox для каждой подписки
+                for subscription in subscriptions:
+                    toy_box = self.toy_box_service.create_box_for_subscription(subscription.id)
+                    print(f"Created ToyBox {toy_box.id} for subscription {subscription.id}")
                     
             except Exception as e:
                 print(f"Failed to create ToyBox: {e}")

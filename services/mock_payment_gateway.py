@@ -3,6 +3,7 @@ import random
 import asyncio
 from datetime import datetime, timedelta, timezone
 from typing import Dict
+from core.config import settings
 
 
 class MockPaymentGateway:
@@ -39,8 +40,8 @@ class MockPaymentGateway:
 
             
         
-        # Имитация результата (90% успех как в реальности)
-        success = random.random() < 0.9
+        # Имитация результата (вероятность из конфигурации)
+        success = random.random() < settings.MOCK_PAYMENT_SUCCESS_RATE
         print(f"Processing payment {external_payment_id} with status {success}")
         return {
             "id": external_payment_id,
@@ -50,7 +51,7 @@ class MockPaymentGateway:
     
     def process_payment_sync(self, external_payment_id: str) -> Dict:
         """Синхронная обработка (для простых тестов)"""
-        success = random.random() < 0.9
+        success = random.random() < settings.MOCK_PAYMENT_SUCCESS_RATE  # Вероятность из конфигурации
         
         return {
             "id": external_payment_id,
