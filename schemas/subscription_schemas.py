@@ -31,6 +31,7 @@ class SubscriptionResponse(BaseModel):
     discount_percent: float
     created_at: datetime
     expires_at: Optional[datetime]
+    is_paused: bool = Field(default=False, description="Приостановлена ли подписка")
     
     class Config:
         from_attributes = True
@@ -46,8 +47,7 @@ class SubscriptionWithDetailsResponse(BaseModel):
     discount_percent: float
     created_at: datetime
     expires_at: Optional[datetime]
-    
-    # Связанные данные
+    is_paused: bool = Field(default=False, description="Приостановлена ли подписка")
     child_name: str
     plan_name: str
     plan_price: float
@@ -56,6 +56,16 @@ class SubscriptionWithDetailsResponse(BaseModel):
     
     class Config:
         from_attributes = True
+
+
+class PauseSubscriptionResponse(BaseModel):
+    """Схема ответа при приостановке подписки"""
+    message: str = Field(..., description="Сообщение о результате операции")
+
+
+class ResumeSubscriptionResponse(BaseModel):
+    """Схема ответа при возобновлении подписки"""
+    message: str = Field(..., description="Сообщение о результате операции")
 
 
 class SubscriptionListResponse(BaseModel):

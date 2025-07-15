@@ -18,6 +18,7 @@ class SubscriptionUpdateFields(BaseModel):
     individual_price: Optional[float] = None
     expires_at: Optional[datetime] = None
     auto_renewal: Optional[bool] = None
+    is_paused: Optional[bool] = None
 
 
 class SubscriptionRepository:
@@ -49,11 +50,12 @@ class SubscriptionRepository:
 
     def get_active_by_child_id(self, child_id: int) -> Optional[Subscription]:
         """Получает активную подписку ребенка"""
-        # Активная подписка = есть payment, payment.status=COMPLETED, expires_at > now
+        # Активная подписка = есть payment, payment.status=COMPLETED, expires_at > now, НЕ на паузе
         return self.db.query(Subscription).join(Payment).filter(
             Subscription.child_id == child_id,
             Payment.status == PaymentStatus.COMPLETED,
-            Subscription.expires_at > datetime.now(timezone.utc)
+            Subscription.expires_at > datetime.now(timezone.utc),
+            Subscription.is_paused == False
         ).first()
 
     def get_by_user_id(self, user_id: int) -> List[Subscription]:
@@ -174,6 +176,14 @@ class SubscriptionRepository:
             Subscription.child_id == child_id,
             # Подписки без платежа ИЛИ с неудачным платежом
             (Subscription.payment_id.is_(None) | (Payment.status == PaymentStatus.FAILED))
+        ).order_by(Subscription.created_at.desc()).first()
+
+    def get_paused_by_child_id(self, child_id: int) -> Optional[Subscription]:
+        """Получает приостановленную подписку ребенка"""
+        return self.db.query(Subscription).join(Payment).filter(
+            Subscription.child_id == child_id,
+            Payment.status == PaymentStatus.COMPLETED,
+            Subscription.is_paused == True
         ).order_by(Subscription.created_at.desc()).first()
 
     def update(self, subscription_id: int, update_data: SubscriptionUpdateFields) -> Optional[Subscription]:

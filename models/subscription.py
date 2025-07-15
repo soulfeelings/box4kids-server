@@ -26,6 +26,7 @@ class Subscription(Base):
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=func.now())
     auto_renewal: Mapped[bool] = mapped_column(default=False)
+    is_paused: Mapped[bool] = mapped_column(default=False)
     
     # Relationships
     child = relationship("Child", back_populates="subscriptions")
@@ -52,6 +53,10 @@ class Subscription(Base):
     @property
     def status(self) -> SubscriptionStatus:
         """Получает статус подписки"""
+        # Проверяем паузу в первую очередь
+        if self.is_paused:
+            return SubscriptionStatus.PAUSED
+            
         if not self.payment:
             return SubscriptionStatus.PENDING_PAYMENT
         

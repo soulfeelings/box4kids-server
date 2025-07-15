@@ -3,7 +3,7 @@ from repositories.subscription_repository import SubscriptionRepository, Subscri
 from repositories.child_repository import ChildRepository
 from repositories.subscription_plan_repository import SubscriptionPlanRepository
 from repositories.delivery_info_repository import DeliveryInfoRepository
-from models.subscription import Subscription
+from models.subscription import Subscription, SubscriptionStatus
 from services.payment_service import PaymentService
 from schemas.subscription_schemas import SubscriptionCreateRequest, SubscriptionResponse, SubscriptionUpdateRequest, SubscriptionWithDetailsResponse
 from dateutil.relativedelta import relativedelta
@@ -71,7 +71,8 @@ class SubscriptionService:
                     status=updated_subscription.status,
                     discount_percent=updated_subscription.discount_percent,
                     created_at=updated_subscription.created_at,
-                    expires_at=updated_subscription.expires_at
+                    expires_at=updated_subscription.expires_at,
+                    is_paused=updated_subscription.is_paused
                 )
 
         # Рассчитываем скидку
@@ -97,7 +98,8 @@ class SubscriptionService:
             status=subscription.status,
             discount_percent=subscription.discount_percent,
             created_at=subscription.created_at,
-            expires_at=subscription.expires_at
+            expires_at=subscription.expires_at,
+            is_paused=subscription.is_paused
         )
 
     def _calculate_discount(self, user_id: int) -> float:
@@ -113,34 +115,46 @@ class SubscriptionService:
 
     def get_user_subscriptions(self, user_id: int) -> List[SubscriptionWithDetailsResponse]:
         """Получает подписки пользователя с подробными данными"""
+        print(f"DEBUG: get_user_subscriptions вызван для user_id={user_id}")
         subscriptions = self.subscription_repo.get_by_user_id(user_id)
+        print(f"DEBUG: Получено {len(subscriptions)} подписок из БД")
         
         result = []
-        for subscription in subscriptions:
-            subscription_data = SubscriptionWithDetailsResponse(
-                id=subscription.id,
-                child_id=subscription.child_id,
-                plan_id=subscription.plan_id,
-                delivery_info_id=subscription.delivery_info_id,
-                status=subscription.status,
-                discount_percent=subscription.discount_percent,
-                created_at=subscription.created_at,
-                expires_at=subscription.expires_at,
-                child_name=subscription.child.name,
-                plan_name=subscription.plan.name,
-                plan_price=subscription.plan.price_monthly,
-                user_id=subscription.user.id,
-                user_name=subscription.user.name
-            )
-            result.append(subscription_data)
+        for i, subscription in enumerate(subscriptions):
+            print(f"DEBUG: Обрабатываем подписку {i+1}/{len(subscriptions)}, id={subscription.id}")
+            try:
+                subscription_data = SubscriptionWithDetailsResponse(
+                    id=subscription.id,
+                    child_id=subscription.child_id,
+                    plan_id=subscription.plan_id,
+                    delivery_info_id=subscription.delivery_info_id,
+                    status=subscription.status,
+                    discount_percent=subscription.discount_percent,
+                    created_at=subscription.created_at,
+                    expires_at=subscription.expires_at,
+                    is_paused=subscription.is_paused,
+                    child_name=subscription.child.name,
+                    plan_name=subscription.plan.name,
+                    plan_price=subscription.plan.price_monthly,
+                    user_id=subscription.user.id,
+                    user_name=subscription.user.name
+                )
+                result.append(subscription_data)
+                print(f"DEBUG: Подписка {subscription.id} успешно обработана")
+            except Exception as e:
+                print(f"ERROR: Ошибка при обработке подписки {subscription.id}: {e}")
+                print(f"ERROR: Данные подписки: id={subscription.id}, child_id={subscription.child_id}, plan_id={subscription.plan_id}")
+                print(f"ERROR: is_paused={subscription.is_paused}, status={subscription.status}")
+                raise e
         
+        print(f"DEBUG: Возвращаем {len(result)} обработанных подписок")
         return result
 
     def get_subscription_by_id(self, subscription_id: int) -> Optional[Subscription]:
         """Получает подписку по ID"""
         return self.subscription_repo.get_by_id(subscription_id)
 
-    def cancel_child_subscription(self, child_id: int) -> bool:
+    def cancel_child_subscription_with_refund(self, child_id: int) -> bool:
         """Отменяет активную подписку ребенка (через отмену платежа)"""
         active_subscription = self.subscription_repo.get_active_by_child_id(child_id)
         if not active_subscription:
@@ -151,6 +165,52 @@ class SubscriptionService:
             return self.payment_service.refund_payment(active_subscription.payment_id)
         
         return False
+
+    def pause_subscription(self, subscription_id: int, user_id: int) -> bool:
+        """Приостанавливает подписку по ID (без возврата средств)"""
+        subscription = self.subscription_repo.get_by_id(subscription_id)
+        if not subscription:
+            raise ValueError(f"Подписка с ID {subscription_id} не найдена")
+        
+        # Проверяем права доступа
+        if subscription.user.id != user_id:
+            raise ValueError("Нет доступа к этой подписке")
+        
+        # Проверяем что подписка активна
+        if subscription.status != SubscriptionStatus.ACTIVE:
+            raise ValueError("Можно приостановить только активную подписку")
+        
+        # Отключаем автопродление и помечаем как приостановленную
+        update_data = SubscriptionUpdateFields(
+            auto_renewal=False,
+            is_paused=True
+        )
+        
+        updated = self.subscription_repo.update(subscription_id, update_data)
+        return updated is not None
+
+    def resume_subscription(self, subscription_id: int, user_id: int) -> bool:
+        """Возобновляет приостановленную подписку по ID"""
+        subscription = self.subscription_repo.get_by_id(subscription_id)
+        if not subscription:
+            raise ValueError(f"Подписка с ID {subscription_id} не найдена")
+        
+        # Проверяем права доступа
+        if subscription.user.id != user_id:
+            raise ValueError("Нет доступа к этой подписке")
+        
+        # Проверяем что подписка приостановлена
+        if subscription.status != SubscriptionStatus.PAUSED:
+            raise ValueError("Можно возобновить только приостановленную подписку")
+        
+        # Снимаем паузу и включаем автопродление
+        update_data = SubscriptionUpdateFields(
+            auto_renewal=True,
+            is_paused=False
+        )
+        
+        updated = self.subscription_repo.update(subscription_id, update_data)
+        return updated is not None
 
     def get_active_child_subscription(self, child_id: int) -> Optional[Subscription]:
         """Получает активную подписку ребенка"""
