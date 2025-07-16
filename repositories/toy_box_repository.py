@@ -1,6 +1,8 @@
 from sqlalchemy.orm import Session, joinedload
 from models.toy_box import ToyBox, ToyBoxItem, ToyBoxReview, ToyBoxStatus
+from models.child import Child
 from typing import List, Optional
+from datetime import date
 
 
 class ToyBoxRepository:
@@ -45,6 +47,54 @@ class ToyBoxRepository:
         if limit:
             query = query.limit(limit)
         return query.all()
+
+    def get_active_boxes_by_delivery_info_id(self, delivery_info_id: int, user_id: int) -> List[ToyBox]:
+        """Получить активные наборы по ID адреса доставки для конкретного пользователя"""
+        active_statuses = [ToyBoxStatus.PLANNED, ToyBoxStatus.ASSEMBLED, ToyBoxStatus.SHIPPED]
+        return (
+            self.db.query(ToyBox)
+            .options(joinedload(ToyBox.items))
+            .join(Child, ToyBox.child_id == Child.id)  # Присоединяем ребенка
+            .filter(
+                ToyBox.delivery_info_id == delivery_info_id,
+                ToyBox.status.in_(active_statuses),
+                Child.parent_id == user_id  # Проверяем что ребенок принадлежит пользователю
+            )
+            .order_by(ToyBox.created_at.desc())
+            .all()
+        )
+
+    def update_delivery_date(self, box_id: int, delivery_date: date, return_date: date) -> Optional[ToyBox]:
+        """Обновить дату доставки и возврата набора"""
+        box = self.get_by_id(box_id)
+        if box:
+            box.delivery_date = delivery_date
+            box.return_date = return_date
+            self.db.flush()
+            self.db.refresh(box)
+        return box
+
+    def update_delivery_time(self, box_id: int, delivery_time: str) -> Optional[ToyBox]:
+        """Обновить время доставки и возврата набора"""
+        box = self.get_by_id(box_id)
+        if box:
+            box.delivery_time = delivery_time
+            box.return_time = delivery_time  # Используем то же время для возврата
+            self.db.flush()
+            self.db.refresh(box)
+        return box
+
+    def update_delivery_date_and_time(self, box_id: int, delivery_date: date, delivery_time: str, return_date: date) -> Optional[ToyBox]:
+        """Обновить дату и время доставки и возврата набора"""
+        box = self.get_by_id(box_id)
+        if box:
+            box.delivery_date = delivery_date
+            box.delivery_time = delivery_time
+            box.return_date = return_date
+            box.return_time = delivery_time  # Используем то же время для возврата
+            self.db.flush()
+            self.db.refresh(box)
+        return box
 
     def update_status(self, box_id: int, status: ToyBoxStatus) -> Optional[ToyBox]:
         """Обновить статус набора"""

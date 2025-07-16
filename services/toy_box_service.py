@@ -211,4 +211,57 @@ class ToyBoxService:
 
     def update_box_status(self, box_id: int, status: ToyBoxStatus) -> Optional[ToyBox]:
         """Обновить статус набора"""
-        return self.box_repo.update_status(box_id, status) 
+        return self.box_repo.update_status(box_id, status)
+
+    def sync_active_boxes_with_delivery_date(self, delivery_info_id: int, user_id: int, new_date: date) -> List[ToyBox]:
+        """Синхронизировать активные наборы с обновленной датой доставки"""
+        from datetime import timedelta
+        
+        # Получаем только активные наборы пользователя с этим delivery_info_id
+        active_boxes = self.box_repo.get_active_boxes_by_delivery_info_id(delivery_info_id, user_id)
+        
+        updated_boxes = []
+        for box in active_boxes:
+            # Рассчитываем новую дату возврата
+            return_date = new_date + timedelta(days=settings.RENTAL_PERIOD)
+            
+            # Обновляем дату доставки
+            updated_box = self.box_repo.update_delivery_date(box.id, new_date, return_date)
+            if updated_box:
+                updated_boxes.append(updated_box)
+        
+        return updated_boxes
+
+    def sync_active_boxes_with_delivery_time(self, delivery_info_id: int, user_id: int, new_time: str) -> List[ToyBox]:
+        """Синхронизировать активные наборы с обновленным временем доставки"""
+        
+        # Получаем только активные наборы пользователя с этим delivery_info_id
+        active_boxes = self.box_repo.get_active_boxes_by_delivery_info_id(delivery_info_id, user_id)
+        
+        updated_boxes = []
+        for box in active_boxes:
+            # Обновляем время доставки
+            updated_box = self.box_repo.update_delivery_time(box.id, new_time)
+            if updated_box:
+                updated_boxes.append(updated_box)
+        
+        return updated_boxes
+
+    def sync_active_boxes_with_delivery_date_and_time(self, delivery_info_id: int, user_id: int, new_date: date, new_time: str) -> List[ToyBox]:
+        """Синхронизировать активные наборы с обновленной датой и временем доставки"""
+        from datetime import timedelta
+        
+        # Получаем только активные наборы пользователя с этим delivery_info_id
+        active_boxes = self.box_repo.get_active_boxes_by_delivery_info_id(delivery_info_id, user_id)
+        
+        updated_boxes = []
+        for box in active_boxes:
+            # Рассчитываем новую дату возврата
+            return_date = new_date + timedelta(days=settings.RENTAL_PERIOD)
+            
+            # Обновляем дату и время доставки
+            updated_box = self.box_repo.update_delivery_date_and_time(box.id, new_date, new_time, return_date)
+            if updated_box:
+                updated_boxes.append(updated_box)
+        
+        return updated_boxes 
