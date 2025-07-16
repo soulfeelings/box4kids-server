@@ -195,7 +195,7 @@ class ToyBoxService:
         """Получить все отзывы для набора"""
         return self.box_repo.get_reviews_by_box(box_id)
 
-    def get_box_history_by_user(self, user_id: int, limit: int = 10) -> List[ToyBox]:
+    def get_box_history_by_user(self, user_id: int, limit: int = 10, statuses: Optional[List[ToyBoxStatus]] = None) -> List[ToyBox]:
         """Получить историю наборов для всех детей пользователя"""
         children = self.child_repo.get_by_parent_id(user_id)
         
@@ -203,6 +203,10 @@ class ToyBoxService:
         for child in children:
             boxes = self.box_repo.get_boxes_by_child(child.id, limit)
             all_boxes.extend(boxes)
+        
+        # Фильтруем по статусам если указаны
+        if statuses:
+            all_boxes = [box for box in all_boxes if box.status in statuses]
         
         # Сортируем по дате создания
         all_boxes.sort(key=lambda x: x.created_at, reverse=True)

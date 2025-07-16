@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from core.database import get_db
 from core.security import get_current_user
@@ -12,6 +12,8 @@ from schemas.toy_box_schemas import (
     ToyBoxReviewsResponse,
     NextBoxResponse
 )
+from models.toy_box import ToyBoxStatus
+from typing import List
 
 router = APIRouter(prefix="/toy-boxes", tags=["Toy Boxes"])
 
@@ -100,10 +102,11 @@ async def get_box_reviews(
 async def get_box_history(
     current_user: UserFromToken = Depends(get_current_user),
     limit: int = 10,
+    status: List[ToyBoxStatus] = Query(default=[], description="Filter by status"),
     toy_box_service: ToyBoxService = Depends(get_toy_box_service)
 ):
     """Получить историю наборов текущего пользователя"""
-    boxes = toy_box_service.get_box_history_by_user(current_user.id, limit)
+    boxes = toy_box_service.get_box_history_by_user(current_user.id, limit, status)
     box_responses = [ToyBoxResponse.model_validate(box) for box in boxes]
     return ToyBoxListResponse(boxes=box_responses)
 
