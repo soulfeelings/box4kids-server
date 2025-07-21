@@ -12,6 +12,36 @@
   - Если все подписки оплачены → скидок нет
 - **Неизменность оплаченных подписок:** Оплаченные подписки не изменяются при добавлении новых детей
 
+### Статусы подписок для расчета скидок
+
+#### ✅ **Учитываемые статусы:**
+
+- `PENDING_PAYMENT` - ожидает оплаты (новая подписка)
+- `ACTIVE` - активная и оплаченная подписка
+- `PAUSED` - приостановленная, но оплаченная подписка
+
+#### ❌ **Исключаемые статусы:**
+
+- `CANCELLED` - отмененная подписка (не влияет на скидки)
+- `EXPIRED` - истекшая подписка (не влияет на скидки)
+
+#### 📋 **Логика определения статуса:**
+
+```python
+# Подписка считается "активной" если:
+- payment.status == "completed"
+- expires_at > текущее_время
+- is_paused == False
+
+# Подписка считается "новой" если:
+- payment.status != "completed" или payment == None
+- status == "pending_payment"
+
+# Подписка исключается из расчета если:
+- status == "cancelled" или "expired"
+- payment.status == "failed", "refunded", "expired"
+```
+
 ### Примеры применения скидок
 
 **Сценарий 1: Новые подписки**
@@ -40,6 +70,20 @@
 - Ребенок 3: план "Премиум" (9 игрушек) - $150/мес (новая подписка)
 - **Результат:** Скидка 20% применяется к НОВОЙ подписке "Премиум" = $120 вместо $150
 - **Примечание:** Существующие оплаченные подписки остаются без изменений
+
+**Сценарий 5: С отмененными подписками**
+
+- Ребенок 1: план "Базовый" (6 игрушек) - $100/мес (статус: CANCELLED)
+- Ребенок 2: план "Премиум" (9 игрушек) - $150/мес (новая подписка)
+- **Результат:** Скидка 20% применяется к "Премиум" = $120 вместо $150
+- **Примечание:** Отмененная подписка не учитывается в расчете
+
+**Сценарий 6: С приостановленными подписками**
+
+- Ребенок 1: план "Базовый" (6 игрушек) - $100/мес (статус: PAUSED, оплачен)
+- Ребенок 2: план "Премиум" (9 игрушек) - $150/мес (новая подписка)
+- **Результат:** Скидка 20% применяется к "Премиум" = $120 вместо $150
+- **Примечание:** Приостановленная оплаченная подписка учитывается как "оплаченная"
 
 ## Текущее состояние
 
@@ -70,21 +114,40 @@ def _calculate_discount_for_user(self, user_id: int) -> Dict[int, float]:
     if len(children) <= 1:
         return {child.id: 0.0 for child in children}
 
-    # Получаем все активные/ожидающие подписки
+    # Получаем все релевантные подписки (исключаем отмененные и истекшие)
     subscriptions = []
     for child in children:
+        # Получаем активную подписку
         subscription = self.subscription_repo.get_active_by_child_id(child.id)
-        if not subscription:
-            subscription = self.subscription_repo.get_pending_payment_by_child_id(child.id)
-        if subscription:
+        if subscription and subscription.status not in [SubscriptionStatus.CANCELLED, SubscriptionStatus.EXPIRED]:
             subscriptions.append(subscription)
+            continue
+
+        # Получаем ожидающую оплаты подписку
+        subscription = self.subscription_repo.get_pending_payment_by_child_id(child.id)
+        if subscription and subscription.status not in [SubscriptionStatus.CANCELLED, SubscriptionStatus.EXPIRED]:
+            subscriptions.append(subscription)
+            continue
+
+        # Получаем приостановленную подписку (если есть)
+        paused_subscription = self.subscription_repo.get_paused_by_child_id(child.id)
+        if paused_subscription and paused_subscription.status == SubscriptionStatus.PAUSED:
+            subscriptions.append(paused_subscription)
 
     if len(subscriptions) <= 1:
         return {child.id: 0.0 for child in children}
 
     # Разделяем подписки на оплаченные и новые
-    paid_subscriptions = [s for s in subscriptions if s.payment and s.payment.status == PaymentStatus.COMPLETED]
-    new_subscriptions = [s for s in subscriptions if not s.payment or s.payment.status != PaymentStatus.COMPLETED]
+    paid_subscriptions = [
+        s for s in subscriptions
+        if s.payment and s.payment.status == PaymentStatus.COMPLETED
+        and s.status in [SubscriptionStatus.ACTIVE, SubscriptionStatus.PAUSED]
+    ]
+    new_subscriptions = [
+        s for s in subscriptions
+        if not s.payment or s.payment.status != PaymentStatus.COMPLETED
+        or s.status == SubscriptionStatus.PENDING_PAYMENT
+    ]
 
     # Если есть только оплаченные подписки - скидок нет
     if not new_subscriptions:
@@ -417,14 +480,25 @@ def recalculate_discounts_for_user(self, user_id: int) -> None:
     # 1. Получаем всех детей пользователя
     children = self.child_repo.get_by_parent_id(user_id)
 
-    # 2. Получаем все активные/ожидающие подписки
+    # 2. Получаем все релевантные подписки (исключаем отмененные и истекшие)
     subscriptions = []
     for child in children:
+        # Получаем активную подписку
         subscription = self.subscription_repo.get_active_by_child_id(child.id)
-        if not subscription:
-            subscription = self.subscription_repo.get_pending_payment_by_child_id(child.id)
-        if subscription:
+        if subscription and subscription.status not in [SubscriptionStatus.CANCELLED, SubscriptionStatus.EXPIRED]:
             subscriptions.append(subscription)
+            continue
+
+        # Получаем ожидающую оплаты подписку
+        subscription = self.subscription_repo.get_pending_payment_by_child_id(child.id)
+        if subscription and subscription.status not in [SubscriptionStatus.CANCELLED, SubscriptionStatus.EXPIRED]:
+            subscriptions.append(subscription)
+            continue
+
+        # Получаем приостановленную подписку (если есть)
+        paused_subscription = self.subscription_repo.get_paused_by_child_id(child.id)
+        if paused_subscription and paused_subscription.status == SubscriptionStatus.PAUSED:
+            subscriptions.append(paused_subscription)
 
     # 3. Если подписок меньше 2 - скидок нет
     if len(subscriptions) <= 1:
@@ -433,8 +507,16 @@ def recalculate_discounts_for_user(self, user_id: int) -> None:
         return
 
     # 4. Разделяем подписки на оплаченные и новые
-    paid_subscriptions = [s for s in subscriptions if s.payment and s.payment.status == PaymentStatus.COMPLETED]
-    new_subscriptions = [s for s in subscriptions if not s.payment or s.payment.status != PaymentStatus.COMPLETED]
+    paid_subscriptions = [
+        s for s in subscriptions
+        if s.payment and s.payment.status == PaymentStatus.COMPLETED
+        and s.status in [SubscriptionStatus.ACTIVE, SubscriptionStatus.PAUSED]
+    ]
+    new_subscriptions = [
+        s for s in subscriptions
+        if not s.payment or s.payment.status != PaymentStatus.COMPLETED
+        or s.status == SubscriptionStatus.PENDING_PAYMENT
+    ]
 
     # 5. Если есть только оплаченные подписки - скидок нет
     if not new_subscriptions:
@@ -522,11 +604,35 @@ def recalculate_discounts_for_user_optimized(self, user_id: int) -> None:
 
 ### Тестовые сценарии
 
+#### Базовые сценарии
+
 1. **Один ребенок** - скидка не применяется
 2. **Два ребенка с одинаковыми планами** - скидка 20% к одному из планов
 3. **Два ребенка с разными планами** - скидка 20% к самому дешевому плану
 4. **Три ребенка с разными планами** - скидка 20% к самому дешевому плану
 5. **Изменение плана** - пересчет скидок при изменении плана
+
+#### Сценарии с оплаченными подписками
+
+6. **Оплаченная + новая подписка** - скидка только к новой
+7. **Две оплаченные + новая** - скидка только к новой
+8. **Оплаченная + две новые** - скидка к самой дешевой из новых
+
+#### Сценарии со статусами
+
+9. **Отмененная подписка** - не учитывается в расчете
+10. **Истекшая подписка** - не учитывается в расчете
+11. **Приостановленная оплаченная** - учитывается как оплаченная
+12. **Приостановленная неоплаченная** - учитывается как новая
+13. **Неудачный платеж** - учитывается как новая подписка
+14. **Возврат платежа** - не учитывается в расчете
+
+#### Сценарии с множественными статусами
+
+15. **Отмененная + активная + новая** - скидка к новой
+16. **Истекшая + приостановленная + новая** - скидка к новой
+17. **Все отменены + новая** - скидка к новой
+18. **Все истекли + новая** - скидка к новой
 
 ### Проверка результатов
 
