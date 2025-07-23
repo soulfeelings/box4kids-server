@@ -11,6 +11,9 @@ from schemas.toy_box_schemas import NextBoxResponse, NextBoxItemResponse
 from core.config import settings
 from typing import List, Optional, Dict, Any
 from datetime import timedelta, date
+from services.inventory_service import InventoryService
+from services.category_mapping_service import CategoryMappingService
+
 
 class ToyBoxService:
     def __init__(self, db: Session):
@@ -21,9 +24,11 @@ class ToyBoxService:
         self.config_repo = PlanToyConfigurationRepository(db)
         self.category_repo = ToyCategoryRepository(db)
         self.delivery_repo = DeliveryInfoRepository(db)
+        self.inventory_service = InventoryService(db)
+        self.mapping_service = CategoryMappingService(db)
 
     def create_box_for_subscription(self, subscription_id: int) -> ToyBox:
-        """Создать набор для подписки на основе плана"""
+        """Создать набор для подписки с автоматическим распределением по интересам"""
         # Получаем подписку
         subscription = self.subscription_repo.get_by_id(subscription_id)
         if not subscription:
@@ -32,10 +37,10 @@ class ToyBoxService:
         if subscription.status != SubscriptionStatus.ACTIVE:
             raise ValueError(f"Подписка {subscription_id} не активна")
 
-        # Получаем конфигурацию плана
-        plan_configs = self.config_repo.get_by_plan_id(subscription.plan_id)
-        if not plan_configs:
-            raise ValueError(f"Конфигурация для плана {subscription.plan_id} не найдена")
+        # Получаем ребенка и его интересы/навыки
+        child = self.child_repo.get_by_id(child_id=subscription.child_id)
+        if not child:
+            raise ValueError(f"Не найден ребенок для создания бокса при подписке {subscription.id}")
 
         # Получаем информацию о доставке
         delivery_info = None
@@ -46,14 +51,19 @@ class ToyBoxService:
                 delivery_time = delivery_info.time
 
         # Создаем набор с использованием конфигурации
-        # Если есть delivery_info с датой, используем её как базу
         if delivery_info and delivery_info.date:
             delivery_date = delivery_info.date
         else:
             delivery_date = date.today() + timedelta(days=settings.INITIAL_DELIVERY_PERIOD)
         
         return_date = delivery_date + timedelta(days=settings.RENTAL_PERIOD)
+
+        # Генерируем состав набора на основе интересов и навыков
+        items_data = self._generate_box_items(child, subscription.plan_id)
         
+        # Создаем теги на основе интересов и навыков ребенка
+        interest_tags = self._generate_interest_tags(child)
+
         box_data = {
             "subscription_id": subscription_id,
             "child_id": subscription.child_id,
@@ -63,21 +73,114 @@ class ToyBoxService:
             "return_date": return_date,
             "delivery_time": delivery_time,
             "return_time": delivery_time,  # Используем то же время для возврата
+            "interest_tags": interest_tags,
         }
         
         box = self.box_repo.create_box(box_data)
         
         # Добавляем состав набора
-        items_data = []
-        for config in plan_configs:
-            items_data.append({
-                "toy_category_id": config.category_id,
-                "quantity": config.quantity
-            })
-        
         self.box_repo.add_items(box.id, items_data)
         
         return box
+
+    def _generate_interest_tags(self, child) -> List[str]:
+        """Генерировать теги на основе интересов и навыков ребенка"""
+        tags = []
+        
+        # Добавляем интересы ребенка
+        if child.interests:
+            for interest in child.interests:
+                tags.append(interest.name)
+        
+        # Добавляем навыки ребенка
+        if child.skills:
+            for skill in child.skills:
+                tags.append(skill.name)
+        
+        # Возвращаем список тегов (JSONB автоматически сериализует в JSON)
+        return tags if tags else None
+
+    def _generate_box_items(self, child, plan_id: int) -> List[Dict[str, Any]]:
+        """Генерировать состав набора на основе интересов и навыков ребенка"""
+        # Получаем конфигурацию плана для определения общего количества игрушек
+        plan_configs = self.config_repo.get_by_plan_id(plan_id)
+        if not plan_configs:
+            raise ValueError(f"Конфигурация для плана {plan_id} не найдена")
+        
+        total_toys = sum(config.quantity for config in plan_configs)
+        max_categories = 6  # X = 6 (максимальное разнообразие)
+        
+        # Получаем историю наборов ребенка для избежания повторений
+        recent_boxes = self.box_repo.get_boxes_by_child(child.id, limit=3)
+        recent_categories = set()
+        for box in recent_boxes:
+            for item in box.items:
+                recent_categories.add(item.toy_category_id)
+        
+        # Получаем категории с скорингом
+        child_interests = list(child.interests) if child.interests else []
+        child_skills = list(child.skills) if child.skills else []
+        
+        scored_categories = self.mapping_service.get_categories_with_scores(
+            child_interests, child_skills
+        )
+        
+        # Применяем штраф за повторения
+        for scored_category in scored_categories:
+            if scored_category["category"].id in recent_categories:
+                scored_category["score"] *= 0.3  # Штраф 70%
+        
+        # Сортируем по скорингу
+        scored_categories.sort(key=lambda x: x["score"], reverse=True)
+        
+        # Распределяем игрушки
+        items_data = []
+        remaining_toys = total_toys
+        used_categories = 0
+        
+        for scored_category in scored_categories:
+            if remaining_toys <= 0 or used_categories >= max_categories:
+                break
+                
+            category = scored_category["category"]
+            max_count = self.inventory_service.get_max_count(category.id)
+            
+            # Определяем количество для этой категории
+            if remaining_toys <= max_count:
+                quantity = remaining_toys
+            else:
+                quantity = max_count
+            
+            if quantity > 0:
+                items_data.append({
+                    "toy_category_id": category.id,
+                    "quantity": quantity
+                })
+                remaining_toys -= quantity
+                used_categories += 1
+        
+        # Если остались игрушки, распределяем по оставшимся категориям
+        if remaining_toys > 0:
+            all_categories = self.category_repo.get_all()
+            for category in all_categories:
+                if remaining_toys <= 0:
+                    break
+                    
+                # Проверяем, не использовали ли уже эту категорию
+                if any(item["toy_category_id"] == category.id for item in items_data):
+                    continue
+                
+                max_count = self.inventory_service.get_max_count(category.id)
+                quantity = min(remaining_toys, max_count)
+                
+                if quantity > 0:
+                    items_data.append({
+                        "toy_category_id": category.id,
+                        "quantity": quantity
+                    })
+                    remaining_toys -= quantity
+        
+        return items_data
 
     def get_current_box_by_child(self, child_id: int) -> Optional[ToyBox]:
         """Получить текущий набор ребёнка"""

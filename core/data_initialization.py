@@ -4,6 +4,8 @@ from repositories.skill_repository import SkillRepository
 from repositories.toy_category_repository import ToyCategoryRepository
 from repositories.subscription_plan_repository import SubscriptionPlanRepository
 from repositories.plan_toy_configuration_repository import PlanToyConfigurationRepository
+from repositories.inventory_repository import InventoryRepository
+from services.category_mapping_service import CategoryMappingService
 
 
 # Хардкод данных интересов
@@ -35,6 +37,31 @@ TOY_CATEGORIES_DATA = [
     {"name": "Головоломка", "description": "Логические игры и головоломки", "icon": "🧠"},
     {"name": "Премиум-игрушка", "description": "Эксклюзивные развивающие игрушки", "icon": "⭐"},
 ]
+
+
+# Маппинг категорий с интересами и навыками
+CATEGORY_MAPPINGS = {
+    "Конструктор": {
+        "interests": ["🧸 Конструкторы", "⚙️ Техника"],
+        "skills": ["✋ Моторика", "🧠 Логика"]
+    },
+    "Творческий набор": {
+        "interests": ["🎨 Творчество"],
+        "skills": ["🎨 Творчество", "🎭 Воображение"]
+    },
+    "Мягкая игрушка": {
+        "interests": ["🧸 Плюшевые", "🎲 Ролевые"],
+        "skills": ["🎭 Воображение", "💬 Речь"]
+    },
+    "Головоломка": {
+        "interests": ["🧠 Развивающие"],
+        "skills": ["🧠 Логика", "✋ Моторика"]
+    },
+    "Премиум-игрушка": {
+        "interests": ["🧠 Развивающие", "🎨 Творчество"],
+        "skills": ["🧠 Логика", "🎨 Творчество", "🎭 Воображение"]
+    }
+}
 
 
 # Хардкод данных планов подписки
@@ -70,6 +97,66 @@ PLAN_CONFIGURATIONS = {
         "Премиум-игрушка": 1,
     }
 }
+
+def initialize_mock_inventory(db: Session) -> None:
+    """Инициализация склада (МОК)"""
+    repository = InventoryRepository(db)
+
+    # Проверяем, есть ли уже склад
+    invetory = repository.get_all()
+    if invetory:
+        print("Склад уже инициализирован (мок)")
+        return
+
+    data = []
+
+    for category in TOY_CATEGORIES_DATA:
+        name = category["name"]
+        data.append({
+            "category_name": name,
+            "available_quantity": 50
+        })
+
+    repository.create_many(data)
+    print(f"Создано {len(data)} категорий на складе")
+
+
+def initialize_category_mappings(db: Session) -> None:
+    """Инициализация связей между категориями и интересами/навыками"""
+    mapping_service = CategoryMappingService(db)
+    category_repo = ToyCategoryRepository(db)
+    interest_repo = InterestRepository(db)
+    skill_repo = SkillRepository(db)
+    
+    # Проверяем, есть ли уже связи
+    categories = category_repo.get_all()
+    if categories and categories[0].interests:
+        print("Связи категорий уже инициализированы")
+        return
+    
+    print("Инициализация связей категорий с интересами и навыками...")
+    
+    for category_name, mappings in CATEGORY_MAPPINGS.items():
+        category = category_repo.get_by_name(category_name)
+        if not category:
+            print(f"Категория {category_name} не найдена, пропускаем")
+            continue
+        
+        # Добавляем интересы
+        for interest_name in mappings["interests"]:
+            interest = interest_repo.get_by_name(interest_name)
+            if interest:
+                mapping_service.add_interest_to_category(category.id, interest.id)
+                print(f"Добавлен интерес {interest_name} к категории {category_name}")
+        
+        # Добавляем навыки
+        for skill_name in mappings["skills"]:
+            skill = skill_repo.get_by_name(skill_name)
+            if skill:
+                mapping_service.add_skill_to_category(category.id, skill.id)
+                print(f"Добавлен навык {skill_name} к категории {category_name}")
+    
+    print("Инициализация связей завершена")
 
 
 def initialize_interests(db: Session) -> None:
@@ -181,6 +268,8 @@ def initialize_all_data(db: Session) -> None:
         initialize_toy_categories(db)
         initialize_subscription_plans(db)
         initialize_plan_toy_configurations(db)
+        initialize_mock_inventory(db)
+        initialize_category_mappings(db) # Добавляем вызов новой функции
         db.commit()
         print("Инициализация данных завершена")
     except Exception as e:

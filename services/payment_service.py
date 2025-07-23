@@ -325,7 +325,3 @@ class PaymentService:
             return True
         
         return False
-
-
-# Для обратной совместимости
-MockPaymentService = PaymentService 

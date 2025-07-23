@@ -21,6 +21,10 @@ class SkillRepository:
         """Получить навык по ID"""
         return self._db.query(Skill).filter(Skill.id == skill_id).first()
     
+    def get_by_name(self, name: str) -> Optional[Skill]:
+        """Получить навык по имени"""
+        return self._db.query(Skill).filter(Skill.name == name).first()
+    
     def create(self, name: str) -> Skill:
         """Создать новый навык"""
         skill = Skill(name=name)

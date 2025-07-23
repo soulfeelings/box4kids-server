@@ -19,4 +19,5 @@ class Interest(Base):
     name = Column(String, nullable=False)
     
     # Relationships
-    children = relationship("Child", secondary=child_interests, back_populates="interests") 
+    children = relationship("Child", secondary=child_interests, back_populates="interests")
+    categories = relationship("ToyCategory", secondary="category_interests", back_populates="interests") 

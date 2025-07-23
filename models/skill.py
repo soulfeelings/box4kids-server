@@ -19,4 +19,5 @@ class Skill(Base):
     name = Column(String, nullable=False)
     
     # Relationships
-    children = relationship("Child", secondary=child_skills, back_populates="skills") 
+    children = relationship("Child", secondary=child_skills, back_populates="skills")
+    categories = relationship("ToyCategory", secondary="category_skills", back_populates="skills") 

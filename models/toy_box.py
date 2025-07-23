@@ -1,9 +1,9 @@
-from sqlalchemy import Integer, ForeignKey, DateTime, Enum, String, Text, Date, func
+from sqlalchemy import Integer, ForeignKey, DateTime, Enum, String, Text, Date, func, JSON
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 from datetime import date, datetime
 import enum
 from core.database import Base
-from typing import Optional
+from typing import Optional, List
 
 class ToyBoxStatus(enum.Enum):
     """Статусы набора игрушек в процессе аренды"""
@@ -26,6 +26,7 @@ class ToyBox(Base):
     return_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
     delivery_time: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     return_time: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    interest_tags: Mapped[Optional[List[str]]] = mapped_column(JSON, nullable=True)  # JSONB массив с интересами или скиллами ребенка
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=func.now())
 
     # Состав набора

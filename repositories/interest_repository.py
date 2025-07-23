@@ -21,6 +21,10 @@ class InterestRepository:
         """Получить интерес по ID"""
         return self._db.query(Interest).filter(Interest.id == interest_id).first()
     
+    def get_by_name(self, name: str) -> Optional[Interest]:
+        """Получить интерес по имени"""
+        return self._db.query(Interest).filter(Interest.name == name).first()
+    
     def create(self, name: str) -> Interest:
         """Создать новый интерес"""
         interest = Interest(name=name)

@@ -1,6 +1,11 @@
 from sqlalchemy.orm import Session
 from models.toy_category import ToyCategory
+from models.interest import Interest
+from models.skill import Skill
 from typing import List, Optional
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class ToyCategoryRepository:
@@ -40,4 +45,72 @@ class ToyCategoryRepository:
         for category in categories:
             self.db.refresh(category)
         
-        return categories 
+        return categories
+    
+    def add_interest(self, category_id: int, interest: Interest) -> bool:
+        """Добавить интерес к категории"""
+        category = self.get_by_id(category_id)
+        if not category:
+            logger.warning(f"Категория с ID {category_id} не найдена при добавлении интереса {interest.id}")
+            return False
+        
+        if interest not in category.interests:
+            category.interests.append(interest)
+            self.db.flush()
+            self.db.refresh(category)
+            logger.debug(f"Добавлен интерес {interest.name} к категории {category.name}")
+            return True
+        else:
+            logger.debug(f"Интерес {interest.name} уже существует в категории {category.name}")
+            return False
+    
+    def add_skill(self, category_id: int, skill: Skill) -> bool:
+        """Добавить навык к категории"""
+        category = self.get_by_id(category_id)
+        if not category:
+            logger.warning(f"Категория с ID {category_id} не найдена при добавлении навыка {skill.id}")
+            return False
+        
+        if skill not in category.skills:
+            category.skills.append(skill)
+            self.db.flush()
+            self.db.refresh(category)
+            logger.debug(f"Добавлен навык {skill.name} к категории {category.name}")
+            return True
+        else:
+            logger.debug(f"Навык {skill.name} уже существует в категории {category.name}")
+            return False
+    
+    def remove_interest(self, category_id: int, interest: Interest) -> bool:
+        """Удалить интерес из категории"""
+        category = self.get_by_id(category_id)
+        if not category:
+            logger.warning(f"Категория с ID {category_id} не найдена при удалении интереса {interest.id}")
+            return False
+        
+        if interest in category.interests:
+            category.interests.remove(interest)
+            self.db.flush()
+            self.db.refresh(category)
+            logger.debug(f"Удален интерес {interest.name} из категории {category.name}")
+            return True
+        else:
+            logger.debug(f"Интерес {interest.name} не найден в категории {category.name}")
+            return False
+    
+    def remove_skill(self, category_id: int, skill: Skill) -> bool:
+        """Удалить навык из категории"""
+        category = self.get_by_id(category_id)
+        if not category:
+            logger.warning(f"Категория с ID {category_id} не найдена при удалении навыка {skill.id}")
+            return False
+        
+        if skill in category.skills:
+            category.skills.remove(skill)
+            self.db.flush()
+            self.db.refresh(category)
+            logger.debug(f"Удален навык {skill.name} из категории {category.name}")
+            return True
+        else:
+            logger.debug(f"Навык {skill.name} не найден в категории {category.name}")
+            return False 
