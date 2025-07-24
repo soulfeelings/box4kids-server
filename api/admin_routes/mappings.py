@@ -22,6 +22,32 @@ class AddMappingRequest(BaseModel):
     interest_id: int = None
     skill_id: int = None
 
+class InterestResponse(BaseModel):
+    id: int
+    name: str
+
+class SkillResponse(BaseModel):
+    id: int
+    name: str
+
+@router.get("/interests", response_model=List[InterestResponse])
+async def get_all_interests(
+    current_admin: dict = Depends(get_current_admin),
+    interest_repo: InterestRepository = Depends(lambda db=Depends(get_db): InterestRepository(db))
+):
+    """Получить все интересы для админки"""
+    interests = interest_repo.get_all()
+    return [InterestResponse(id=interest.id, name=interest.name) for interest in interests]
+
+@router.get("/skills", response_model=List[SkillResponse])
+async def get_all_skills(
+    current_admin: dict = Depends(get_current_admin),
+    skill_repo: SkillRepository = Depends(lambda db=Depends(get_db): SkillRepository(db))
+):
+    """Получить все навыки для админки"""
+    skills = skill_repo.get_all()
+    return [SkillResponse(id=skill.id, name=skill.name) for skill in skills]
+
 @router.get("/category-mappings", response_model=List[CategoryMappingResponse])
 async def get_category_mappings(
     current_admin: dict = Depends(get_current_admin),
