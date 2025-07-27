@@ -33,7 +33,14 @@ class ChildService:
         )
         
         # Используем репозиторий вместо прямой работы с БД
-        return self._repository.create(child)
+        child = self._repository.create(child)
+        
+        # ПОСЛЕ создания ребенка пересчитываем скидки для всех детей пользователя
+        from services.subscription_service import SubscriptionService
+        subscription_service = SubscriptionService(self._repository._db)
+        subscription_service.recalculate_discounts_for_user(parent_id)
+        
+        return child
     
     def get_children_by_parent(self, parent_id: int) -> List[ChildResponse]:
         """Получает детей пользователя с интересами и навыками"""
@@ -95,7 +102,23 @@ class ChildService:
     
     def delete_child(self, child_id: int) -> bool:
         """Помечает ребенка как удаленного (soft delete)"""
-        return self._repository.delete(child_id)
+        # Получаем ребенка перед удалением, чтобы знать parent_id
+        child = self._repository.get_by_id(child_id)
+        if not child:
+            return False
+        
+        parent_id = child.parent_id
+        
+        # Удаляем ребенка
+        result = self._repository.delete(child_id)
+        
+        # ПОСЛЕ удаления ребенка пересчитываем скидки для оставшихся детей
+        if result:
+            from services.subscription_service import SubscriptionService
+            subscription_service = SubscriptionService(self._repository._db)
+            subscription_service.recalculate_discounts_for_user(parent_id)
+        
+        return result
     
     def _validate_date_of_birth(self, date_of_birth: date) -> None:
         """Валидирует дату рождения"""

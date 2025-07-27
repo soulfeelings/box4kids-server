@@ -50,7 +50,8 @@ class SubscriptionWithDetailsResponse(BaseModel):
     is_paused: bool = Field(default=False, description="Приостановлена ли подписка")
     child_name: str
     plan_name: str
-    plan_price: float
+    plan_price: float  # Базовая цена плана
+    final_price: float  # Цена со скидкой
     user_id: int
     user_name: Optional[str]
     
