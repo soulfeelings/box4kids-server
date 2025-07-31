@@ -6,6 +6,7 @@ from schemas.subscription_plan_schemas import (
     SubscriptionPlansListResponse,
     ToyCategoryConfigResponse
 )
+from core.i18n import translate
 
 
 class SubscriptionPlanService:
@@ -15,7 +16,7 @@ class SubscriptionPlanService:
         self._plan_repository = SubscriptionPlanRepository(db)
         self._config_repository = PlanToyConfigurationRepository(db)
     
-    def get_all_plans(self) -> SubscriptionPlansListResponse:
+    def get_all_plans(self, lang: str = 'ru') -> SubscriptionPlansListResponse:
         """Получить все планы подписки с конфигурациями"""
         plans = self._plan_repository.get_all()
         plan_responses = []
@@ -30,8 +31,8 @@ class SubscriptionPlanService:
                 # Создаем dict для ToyCategoryConfigResponse
                 toy_config_data = {
                     "id": getattr(config.category, 'id'),
-                    "name": getattr(config.category, 'name'),
-                    "description": getattr(config.category, 'description'),
+                    "name": translate(getattr(config.category, 'name'), lang),
+                    "description": translate(getattr(config.category, 'description'), lang) if getattr(config.category, 'description') else None,
                     "icon": getattr(config.category, 'icon'),
                     "quantity": getattr(config, 'quantity')
                 }
@@ -41,10 +42,10 @@ class SubscriptionPlanService:
             # Создаем ответ для плана
             plan_data = {
                 "id": getattr(plan, 'id'),
-                "name": getattr(plan, 'name'),
+                "name": translate(getattr(plan, 'name'), lang),
                 "price_monthly": getattr(plan, 'price_monthly'),
                 "toy_count": getattr(plan, 'toy_count'),
-                "description": getattr(plan, 'description'),
+                "description": translate(getattr(plan, 'description'), lang) if getattr(plan, 'description') else None,
                 "toy_configurations": toy_configs
             }
             plan_response = SubscriptionPlanResponse(**plan_data)

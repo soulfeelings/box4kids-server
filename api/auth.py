@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from functools import lru_cache
 from core.database import get_db
@@ -17,6 +17,7 @@ from schemas.auth_schemas import (
     UserFromToken
 )
 from core.security import get_current_user
+from core.i18n import translate
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -40,26 +41,28 @@ def get_user_service(db: Session = Depends(get_db)) -> UserService:
 @router.post("/send-otp")
 async def send_otp(
     request: PhoneRequest,
-    auth_service: AuthService = Depends(get_auth_service)
+    auth_service: AuthService = Depends(get_auth_service),
+    req: Request = None
 ):
-    """Отправляет OTP код на указанный номер телефона"""
+    lang = req.state.lang if req and hasattr(req.state, 'lang') else 'ru'
     success = auth_service.verify_phone(request.phone_number)
     
     if not success:
         print(f"API /send-otp: Не удалось отправить код для {request.phone_number}")
-        raise HTTPException(status_code=400, detail="Не удалось отправить код")
+        raise HTTPException(status_code=400, detail=translate('failed_to_send_code', lang))
     
-    return {"message": "Код отправлен"}
+    return {"message": translate('code_sent', lang)}
 
 @router.post("/dev-get-code", response_model=DevGetCodeResponse)
 async def dev_get_code(
     request: PhoneRequest,
-    auth_service: AuthService = Depends(get_auth_service)
+    auth_service: AuthService = Depends(get_auth_service),
+    req: Request = None
 ):
-    """DEV метод чтобы получить код для тестирования"""
+    lang = req.state.lang if req and hasattr(req.state, 'lang') else 'ru'
     code = auth_service.dev_get_code(request.phone_number)
     if not code:
-        raise HTTPException(status_code=400, detail="Не удалось получить код")
+        raise HTTPException(status_code=400, detail=translate('failed_to_get_code', lang))
     
     return {"code": code}
 
@@ -67,9 +70,10 @@ async def dev_get_code(
 @router.post("/verify-otp", response_model=AuthResponse)
 async def verify_otp(
     request: OTPRequest,
-    auth_service: AuthService = Depends(get_auth_service)
+    auth_service: AuthService = Depends(get_auth_service),
+    req: Request = None
 ):
-    """Проверяет OTP код и создает/возвращает пользователя с токенами"""
+    lang = req.state.lang if req and hasattr(req.state, 'lang') else 'ru'
     user = auth_service.verify_otp_and_create_user(
         request.phone_number, 
         request.code
@@ -77,7 +81,7 @@ async def verify_otp(
     
     if not user:
         print(f"API /verify-otp: Неверный код для {request.phone_number}")
-        raise HTTPException(status_code=400, detail="Неверный код")
+        raise HTTPException(status_code=400, detail=translate('invalid_code', lang))
     
     # Создаем токены
     tokens = auth_service.create_tokens_for_user(user)
@@ -92,9 +96,10 @@ async def verify_otp(
 async def initiate_phone_change(
     request: InitiatePhoneChangeRequest,
     current_user: UserFromToken = Depends(get_current_user),
-    auth_service: AuthService = Depends(get_auth_service)
+    auth_service: AuthService = Depends(get_auth_service),
+    req: Request = None
 ):
-    """Инициация смены номера телефона - проверяет текущий номер и отправляет OTP на новый"""
+    lang = req.state.lang if req and hasattr(req.state, 'lang') else 'ru'
     success = auth_service.initiate_phone_change(
         current_user.id,
         current_user.phone_number,
@@ -103,18 +108,19 @@ async def initiate_phone_change(
     )
     
     if not success:
-        raise HTTPException(status_code=400, detail="Не удалось инициировать смену номера")
+        raise HTTPException(status_code=400, detail=translate('failed_to_initiate_phone_change', lang))
     
-    return {"message": "Код отправлен на новый номер"}
+    return {"message": translate('code_sent_to_new_number', lang)}
 
 
 @router.post("/change-phone/confirm", response_model=AuthResponse)
 async def confirm_phone_change(
     request: ConfirmPhoneChangeRequest,
     current_user: UserFromToken = Depends(get_current_user),
-    auth_service: AuthService = Depends(get_auth_service)
+    auth_service: AuthService = Depends(get_auth_service),
+    req: Request = None
 ):
-    """Подтверждение смены номера - проверяет OTP нового номера и обновляет пользователя"""
+    lang = req.state.lang if req and hasattr(req.state, 'lang') else 'ru'
     user = auth_service.confirm_phone_change(
         current_user.id,
         request.new_phone,
@@ -122,7 +128,7 @@ async def confirm_phone_change(
     )
     
     if not user:
-        raise HTTPException(status_code=400, detail="Неверный код для нового номера")
+        raise HTTPException(status_code=400, detail=translate('invalid_code_for_new_number', lang))
     
     # Создаем новые токены с обновленным номером
     tokens = auth_service.create_tokens_for_user(user)
@@ -137,30 +143,31 @@ async def confirm_phone_change(
 async def refresh_token(
     request: RefreshTokenRequest,
     auth_service: AuthService = Depends(get_auth_service),
-    user_service: UserService = Depends(get_user_service)
+    user_service: UserService = Depends(get_user_service),
+    req: Request = None
 ):
-    """Обновляет access токен используя refresh токен"""
+    lang = req.state.lang if req and hasattr(req.state, 'lang') else 'ru'
     jwt_service = get_jwt_service()
     
     # Проверяем refresh токен
     payload = jwt_service.verify_token(request.refresh_token)
     if not payload:
-        raise HTTPException(status_code=401, detail="Недействительный refresh токен")
+        raise HTTPException(status_code=401, detail=translate('invalid_refresh_token', lang))
     
     # Проверяем тип токена
     if payload.get("type") != "refresh":
-        raise HTTPException(status_code=401, detail="Неверный тип токена")
+        raise HTTPException(status_code=401, detail=translate('invalid_token_type', lang))
     
     # Извлекаем ID пользователя
     try:
         user_id = int(payload["sub"])
     except (KeyError, ValueError):
-        raise HTTPException(status_code=401, detail="Недействительный refresh токен")
+        raise HTTPException(status_code=401, detail=translate('invalid_refresh_token', lang))
     
     # Получаем пользователя из БД
     user = user_service.get_user_by_id(user_id)
     if not user:
-        raise HTTPException(status_code=401, detail="Пользователь не найден")
+        raise HTTPException(status_code=401, detail=translate('user_not_found', lang))
     
     # Создаем новые токены
     new_tokens = auth_service.create_tokens_for_user(user)

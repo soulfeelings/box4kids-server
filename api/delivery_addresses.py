@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
 from core.database import get_db
 from core.security import get_current_user
@@ -11,6 +11,7 @@ from schemas.delivery_info_schemas import (
     DeliveryInfoListResponse
 )
 from typing import Optional
+from core.i18n import translate
 
 router = APIRouter(prefix="/delivery-addresses", tags=["Delivery Addresses"])
 
@@ -44,12 +45,13 @@ async def update_delivery_address(
     address_id: int,
     update_data: DeliveryInfoUpdate,
     current_user: UserFromToken = Depends(get_current_user),
-    delivery_service: DeliveryInfoService = Depends(get_delivery_service)
+    delivery_service: DeliveryInfoService = Depends(get_delivery_service),
+    req: Request = None
 ):
-    """Обновить адрес доставки текущего пользователя"""
+    lang = req.state.lang if req and hasattr(req.state, 'lang') else 'ru'
     updated_address = delivery_service.update_address(current_user.id, address_id, update_data)
     if not updated_address:
-        raise HTTPException(status_code=404, detail="Адрес не найден")
+        raise HTTPException(status_code=404, detail=translate('address_not_found', lang))
     return updated_address
 
 
@@ -57,10 +59,11 @@ async def update_delivery_address(
 async def delete_delivery_address(
     address_id: int,
     current_user: UserFromToken = Depends(get_current_user),
-    delivery_service: DeliveryInfoService = Depends(get_delivery_service)
+    delivery_service: DeliveryInfoService = Depends(get_delivery_service),
+    req: Request = None
 ):
-    """Удалить адрес доставки текущего пользователя"""
+    lang = req.state.lang if req and hasattr(req.state, 'lang') else 'ru'
     success = delivery_service.delete_address(current_user.id, address_id)
     if not success:
-        raise HTTPException(status_code=404, detail="Адрес не найден")
-    return {"message": "Адрес успешно удален"} 
+        raise HTTPException(status_code=404, detail=translate('address_not_found', lang))
+    return {"message": translate('address_deleted', lang)} 

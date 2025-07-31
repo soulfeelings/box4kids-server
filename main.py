@@ -1,11 +1,13 @@
 import logging
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from api import auth, admin,users, subscriptions, payments, children, interests, skills, toy_categories, subscription_plans, delivery_addresses, toy_boxes
 from core.database import Base, engine, get_db
 from core.config import settings
 from core.data_initialization import initialize_all_data
+from core.i18n import translate
 
 # Настройка логирования
 logging.basicConfig(
@@ -78,6 +80,17 @@ app.include_router(subscription_plans.router)
 app.include_router(delivery_addresses.router)
 app.include_router(toy_boxes.router)
 
+@app.middleware("http")
+async def language_middleware(request: Request, call_next):
+    lang = request.headers.get('accept-language', 'ru').split(',')[0][:2]
+    request.state.lang = lang if lang in ['ru', 'uz'] else 'ru'
+    response = await call_next(request)
+    return response
+
 @app.get("/")
-async def root():
-    return {"message": "Box4Kids API", "version": "1.0.0"} 
+async def root(request: Request):
+    lang = getattr(request.state, 'lang', 'ru')
+    return JSONResponse({
+        "message": translate('greeting', lang),
+        "version": "1.0.0"
+    }) 
