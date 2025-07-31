@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
 from core.database import get_db
 from services.subscription_plan_service import SubscriptionPlanService
@@ -13,7 +13,9 @@ def get_subscription_plan_service(db: Session = Depends(get_db)) -> Subscription
 
 @router.get("/", response_model=SubscriptionPlansListResponse)
 async def get_all_subscription_plans(
+    request: Request,
     plan_service: SubscriptionPlanService = Depends(get_subscription_plan_service)
 ):
     """Получить все планы подписки с конфигурациями игрушек"""
-    return plan_service.get_all_plans() 
+    lang = request.state.lang if hasattr(request.state, 'lang') else 'ru'
+    return plan_service.get_all_plans(lang) 
