@@ -1,0 +1,55 @@
+name: 🚀 Deploy to Dev
+
+on:
+  workflow_dispatch:
+    inputs:
+      buildImage:
+        description: "Build Docker image?"
+        required: true
+        default: "false"
+        type: choice
+        options: ["true", "false"]
+      resetDevEnvironment:
+        description: "Reset environment (remove volumes/images)?"
+        required: true
+        default: "false"
+        type: choice
+        options: ["true", "false"]
+
+jobs:
+  deploy:
+    runs-on: [self-hosted, backend]
+    environment: development
+
+    steps:
+      - name: ✅ Checkout repo
+        uses: actions/checkout@v4
+
+      - name: 💣 Reset environment (optional)
+        if: ${{ github.event.inputs.resetDevEnvironment == 'true' }}
+        run: |
+          docker compose -f docker-compose.dev.yml down -v --remove-orphans || true
+          docker system prune -a -f || true
+          docker volume prune -f || true
+
+      - name: 🛠 Build image (optional)
+        if: ${{ github.event.inputs.buildImage == 'true' }}
+        run: |
+          docker compose -f docker-compose.dev.yml build --no-cache
+
+      - name: 🚀 Deploy containers
+        run: |
+          docker compose -f docker-compose.dev.yml up -d --force-recreate
+
+      - name: 🔍 Health check
+        run: |
+          for i in {1..5}; do
+            if curl -fs http://localhost:8000/health > /dev/null; then
+              echo "✅ Health check passed"
+              exit 0
+            fi
+            echo "⏳ Waiting for app... ($i/5)"
+            sleep 2
+          done
+          echo "❌ App failed health check"
+          exit 1
