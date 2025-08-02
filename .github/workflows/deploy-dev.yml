@@ -19,7 +19,6 @@ on:
 jobs:
   deploy:
     runs-on: [self-hosted, backend]
-    environment: development
 
     steps:
       - name: ✅ Checkout repo
@@ -28,18 +27,16 @@ jobs:
       - name: 💣 Reset environment (optional)
         if: ${{ github.event.inputs.resetDevEnvironment == 'true' }}
         run: |
-          docker compose -f docker-compose.dev.yml down -v --remove-orphans || true
-          docker system prune -a -f || true
-          docker volume prune -f || true
+          make dev-reset
 
       - name: 🛠 Build image (optional)
         if: ${{ github.event.inputs.buildImage == 'true' }}
         run: |
-          docker compose -f docker-compose.dev.yml build --no-cache
+          make dev-build
 
       - name: 🚀 Deploy containers
         run: |
-          docker compose -f docker-compose.dev.yml up -d --force-recreate
+          make dev-deploy
 
       - name: 🔍 Health check
         run: |

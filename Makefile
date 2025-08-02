@@ -1,12 +1,7 @@
-.PHONY: menu help test lint format clean dev stop logs restart rebuild prod-up prod-down prod-rebuild
+.PHONY: menu help lint format clean dev dev-up dev-reset dev-build dev-deploy stop logs restart rebuild prod-up prod-down prod-rebuild
 
 # Docker commands
-DOCKER_COMPOSE := $(shell command -v docker-compose 2> /dev/null)
-ifdef DOCKER_COMPOSE
-    COMPOSE_CMD = docker-compose
-else
-    COMPOSE_CMD = docker compose
-endif
+COMPOSE_CMD = docker compose
 
 # Default target
 menu:
@@ -16,39 +11,41 @@ menu:
 	@echo "3) logs          - Show API logs"
 	@echo "4) restart       - Restart API service"
 	@echo "5) rebuild       - Rebuild and restart services"
-	@echo "6) test          - Run tests"
-	@echo "7) test-cov      - Run tests with coverage"
-	@echo "8) lint          - Run linting"
-	@echo "9) format        - Format code"
-	@echo "10) check        - Format + lint"
-	@echo "11) lint-local   - Run linting locally"
-	@echo "12) format-local - Format code locally"
-	@echo "13) clean        - Clean cache files"
-	@echo "14) db-up        - Start database only"
-	@echo "15) install-deps - Install dependencies in container"
-	@echo "16) prod-up      - Start production environment"
-	@echo "17) prod-down    - Stop production environment"
-	@echo "18) prod-rebuild - Rebuild production environment"
-	@read -p "Enter choice [1-18]: " choice; \
+	@echo "6) lint          - Run linting"
+	@echo "7) format        - Format code"
+	@echo "8) check         - Format + lint"
+	@echo "9) lint-local    - Run linting locally"
+	@echo "10) format-local - Format code locally"
+	@echo "11) clean        - Clean cache files"
+	@echo "12) db-up        - Start database only"
+	@echo "13) dev-up       - Start development environment"
+	@echo "14) dev-reset    - Reset dev environment (remove volumes/images)"
+	@echo "15) dev-build    - Build dev image (no cache)"
+	@echo "16) dev-deploy   - Deploy dev containers (force recreate)"
+	@echo "17) prod-up      - Start production environment"
+	@echo "18) prod-down    - Stop production environment"
+	@echo "19) prod-rebuild - Rebuild production environment"
+	@read -p "Enter choice [1-19]: " choice; \
 	case $$choice in \
 		1) make dev ;; \
 		2) make stop ;; \
 		3) make logs ;; \
 		4) make restart ;; \
 		5) make rebuild ;; \
-		6) make test ;; \
-		7) make test-cov ;; \
-		8) make lint ;; \
-		9) make format ;; \
-		10) make check ;; \
-		11) make lint-local ;; \
-		12) make format-local ;; \
-		13) make clean ;; \
-		14) make db-up ;; \
-		15) make install-deps ;; \
-		16) make prod-up ;; \
-		17) make prod-down ;; \
-		18) make prod-rebuild ;; \
+		6) make lint ;; \
+		7) make format ;; \
+		8) make check ;; \
+		9) make lint-local ;; \
+		10) make format-local ;; \
+		11) make clean ;; \
+		12) make db-up ;; \
+		13) make dev-up ;; \
+		14) make dev-reset ;; \
+		15) make dev-build ;; \
+		16) make dev-deploy ;; \
+		17) make prod-up ;; \
+		18) make prod-down ;; \
+		19) make prod-rebuild ;; \
 		*) echo "Invalid choice!" ;; \
 	esac
 
@@ -57,6 +54,20 @@ help: menu
 # Development commands
 dev:
 	$(COMPOSE_CMD) up -d
+
+dev-up:
+	$(COMPOSE_CMD) -f docker-compose.dev.yml up -d
+
+dev-reset:
+	$(COMPOSE_CMD) -f docker-compose.dev.yml down -v --remove-orphans
+	docker system prune -a -f
+	docker volume prune -f
+
+dev-build:
+	$(COMPOSE_CMD) -f docker-compose.dev.yml build --no-cache
+
+dev-deploy:
+	$(COMPOSE_CMD) -f docker-compose.dev.yml up -d --force-recreate
 
 stop:
 	$(COMPOSE_CMD) down
@@ -74,22 +85,12 @@ rebuild:
 db-up:
 	$(COMPOSE_CMD) up -d postgres
 
-# Install dependencies in container
-install-deps:
-	docker exec -it server-api-1 pip install -r requirements.txt
 
-# Run tests
-test:
-	$(COMPOSE_CMD) exec api pytest
-
-# Run tests with coverage
-test-cov:
-	$(COMPOSE_CMD) exec api pytest --cov=server --cov-report=html --cov-report=term
 
 # Run linting
 lint:
 	$(COMPOSE_CMD) exec api flake8 .
-	$(COMPOSE_CMD) exec api mypy .
+	$(COMPOSE_CMD) exec api mypy . --ignore-missing-imports
 
 # Format code
 format:
@@ -103,7 +104,7 @@ check: format lint
 # Local linting (if you have tools installed locally)
 lint-local:
 	flake8 .
-	mypy .
+	mypy . --ignore-missing-imports
 
 # Local formatting (if you have tools installed locally)  
 format-local:

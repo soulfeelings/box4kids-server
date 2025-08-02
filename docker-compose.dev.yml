@@ -34,7 +34,6 @@ services:
     ports:
       - "8000:8000"
     environment:
-    environment:
       DATABASE_URL: postgresql://postgres:password@postgres:5432/box4kids
       REDIS_URL: redis://redis:6379
       DEBUG: "true"
