@@ -36,14 +36,15 @@ async def create_child(
     subscription_service = SubscriptionService(db)
     plan_service = SubscriptionPlanService(db)
     
-    # Создаем ребенка
+    # Создаем ребенка с callback для пересчета скидок
     child = child_service.create_child(
         parent_id=current_user.id,
         name=child_data.name,
         date_of_birth=child_data.date_of_birth,
         gender=child_data.gender,
         has_limitations=child_data.has_limitations,
-        comment=child_data.comment
+        comment=child_data.comment,
+        on_create=lambda parent_id: subscription_service.recalculate_discounts_for_user(parent_id)
     )
     
     # Создаем базовую подписку
@@ -119,7 +120,8 @@ async def update_child(
 async def delete_child(
     child_id: int,
     current_user: UserFromToken = Depends(get_current_user),
-    child_service: ChildService = Depends(get_child_service)
+    child_service: ChildService = Depends(get_child_service),
+    subscription_service: SubscriptionService = Depends(get_subscription_service)
 ):
     """Удалить ребенка"""
     # Сначала проверяем что ребенок существует и принадлежит пользователю
@@ -130,7 +132,11 @@ async def delete_child(
     if existing_child.parent_id != current_user.id:
         raise HTTPException(status_code=403, detail="Нет доступа к этому ребенку")
     
-    success = child_service.delete_child(child_id)
+    # Удаляем ребенка с callback для пересчета скидок
+    success = child_service.delete_child(
+        child_id,
+        on_delete=lambda parent_id: subscription_service.recalculate_discounts_for_user(parent_id)
+    )
     if not success:
         raise HTTPException(status_code=404, detail="Ребенок не найден")
     

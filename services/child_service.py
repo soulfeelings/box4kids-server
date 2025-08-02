@@ -2,7 +2,7 @@ from sqlalchemy.orm import Session
 from models.child import Child, Gender
 from models.interest import Interest
 from models.skill import Skill
-from typing import Optional, List
+from typing import Optional, List, Callable
 from datetime import date
 from fastapi import HTTPException
 from repositories.child_repository import ChildRepository
@@ -18,27 +18,38 @@ class ChildService:
         self._skill_service = SkillService(db)
     
     def create_child(self, parent_id: int, name: str, date_of_birth: date, gender: Gender, 
-                     has_limitations: bool = False, comment: Optional[str] = None) -> Child:
-        """Создает ребенка"""
+                     has_limitations: bool = False, comment: Optional[str] = None,
+                     on_create: Optional[Callable[[int], None]] = None) -> Child:
+        """Создает ребенка
+        
+        Args:
+            parent_id: ID родителя
+            name: Имя ребенка
+            date_of_birth: Дата рождения
+            gender: Пол
+            has_limitations: Есть ли ограничения
+            comment: Комментарий
+            on_create: Callback функция, вызываемая после создания с parent_id
+        """
         # Валидация даты рождения
         self._validate_date_of_birth(date_of_birth)
         
+        # Создаем ребенка
         child = Child(
             name=name,
             date_of_birth=date_of_birth,
             gender=gender,
+            parent_id=parent_id,
             has_limitations=has_limitations,
-            comment=comment,
-            parent_id=parent_id
+            comment=comment
         )
         
         # Используем репозиторий вместо прямой работы с БД
         child = self._repository.create(child)
         
-        # ПОСЛЕ создания ребенка пересчитываем скидки для всех детей пользователя
-        from services.subscription_service import SubscriptionService
-        subscription_service = SubscriptionService(self._repository._db)
-        subscription_service.recalculate_discounts_for_user(parent_id)
+        # Вызываем callback после создания ребенка
+        if on_create:
+            on_create(parent_id)
         
         return child
     
@@ -100,8 +111,13 @@ class ChildService:
         # Возвращаем обновленные данные без дополнительного запроса
         return ChildResponse.model_validate(child)
     
-    def delete_child(self, child_id: int) -> bool:
-        """Помечает ребенка как удаленного (soft delete)"""
+    def delete_child(self, child_id: int, on_delete: Optional[Callable[[int], None]] = None) -> bool:
+        """Помечает ребенка как удаленного (soft delete)
+        
+        Args:
+            child_id: ID ребенка для удаления
+            on_delete: Callback функция, вызываемая после удаления с parent_id
+        """
         # Получаем ребенка перед удалением, чтобы знать parent_id
         child = self._repository.get_by_id(child_id)
         if not child:
@@ -112,11 +128,9 @@ class ChildService:
         # Удаляем ребенка
         result = self._repository.delete(child_id)
         
-        # ПОСЛЕ удаления ребенка пересчитываем скидки для оставшихся детей
-        if result:
-            from services.subscription_service import SubscriptionService
-            subscription_service = SubscriptionService(self._repository._db)
-            subscription_service.recalculate_discounts_for_user(parent_id)
+        # Вызываем callback после удаления ребенка
+        if result and on_delete:
+            on_delete(parent_id)
         
         return result
     
