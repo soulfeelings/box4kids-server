@@ -80,4 +80,9 @@ app.include_router(toy_boxes.router)
 
 @app.get("/")
 async def root():
-    return {"message": "Box4Kids API", "version": "1.0.0"} 
+    return {"message": "Box4Kids API", "version": "1.0.0"}
+
+@app.get("/health")
+async def health_check():
+    """Health check endpoint для мониторинга"""
+    return {"status": "healthy", "timestamp": "2024-01-01T00:00:00Z"} 

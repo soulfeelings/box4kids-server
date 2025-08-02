@@ -1,0 +1,52 @@
+name: 🚀 Deploy to Dev
+
+on:
+  workflow_dispatch:
+    inputs:
+      buildImage:
+        description: "Build Docker image?"
+        required: true
+        default: "false"
+        type: choice
+        options: ["true", "false"]
+      resetDevEnvironment:
+        description: "Reset environment (remove volumes/images)?"
+        required: true
+        default: "false"
+        type: choice
+        options: ["true", "false"]
+
+jobs:
+  deploy:
+    runs-on: [self-hosted, backend]
+
+    steps:
+      - name: ✅ Checkout repo
+        uses: actions/checkout@v4
+
+      - name: 💣 Reset environment (optional)
+        if: ${{ github.event.inputs.resetDevEnvironment == 'true' }}
+        run: |
+          make dev-reset
+
+      - name: 🛠 Build image (optional)
+        if: ${{ github.event.inputs.buildImage == 'true' }}
+        run: |
+          make dev-build
+
+      - name: 🚀 Deploy containers
+        run: |
+          make dev-deploy
+
+      - name: 🔍 Health check
+        run: |
+          for i in {1..5}; do
+            if curl -fs http://localhost:8000/health > /dev/null; then
+              echo "✅ Health check passed"
+              exit 0
+            fi
+            echo "⏳ Waiting for app... ($i/5)"
+            sleep 2
+          done
+          echo "❌ App failed health check"
+          exit 1

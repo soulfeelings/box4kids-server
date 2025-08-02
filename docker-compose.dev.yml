@@ -37,6 +37,7 @@ services:
       DATABASE_URL: postgresql://postgres:password@postgres:5432/box4kids
       REDIS_URL: redis://redis:6379
       DEBUG: "true"
+      SECRET_KEY: "dev-secret-key-change-in-production"
     depends_on:
       postgres:
         condition: service_healthy
@@ -44,7 +45,8 @@ services:
         condition: service_healthy
     volumes:
       - .:/app
-    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+      - /app/venv
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload --log-level debug
 
 volumes:
   postgres_data:

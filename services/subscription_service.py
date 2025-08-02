@@ -75,8 +75,12 @@ class SubscriptionService:
                     is_paused=updated_subscription.is_paused
                 )
 
-        # Рассчитываем скидку
-        discount_percent = self._calculate_discount(child.parent_id)
+        # Рассчитываем скидки для всех детей пользователя
+        discounts = self._calculate_discount_for_user(child.parent_id)
+        discount_percent = discounts.get(child.id, 0.0)
+        
+        # Рассчитываем финальную цену
+        final_price = plan.price_monthly * (1 - discount_percent / 100)
         
         # Создаем подписку БЕЗ status (он будет вычисляться)
         subscription = Subscription(
@@ -84,11 +88,14 @@ class SubscriptionService:
             plan_id=request.plan_id,
             delivery_info_id=request.delivery_info_id,
             discount_percent=discount_percent,
-            individual_price=plan.price_monthly,
+            individual_price=final_price,  # Сохраняем цену со скидкой
             expires_at=datetime.now(timezone.utc) + relativedelta(months=1)
         )
         
         subscription = self.subscription_repo.create(subscription)
+        
+        # ПОСЛЕ создания подписки пересчитываем скидки для всех детей пользователя
+        self.recalculate_discounts_for_user(child.parent_id)
         
         return SubscriptionResponse(
             id=subscription.id,
@@ -113,6 +120,84 @@ class SubscriptionService:
         
         return 0.0
 
+    def _calculate_discount_for_user(self, user_id: int) -> dict[int, float]:
+        """Рассчитывает скидки для всех детей пользователя согласно бизнес-логике (N-1 самых дешевых наборов)"""
+        children = self.child_repo.get_by_parent_id(user_id)
+        if len(children) <= 1:
+            return {child.id: 0.0 for child in children}
+
+        # Получаем все релевантные подписки (исключаем отмененные и истекшие)
+        subscriptions = []
+        for child in children:
+            # Получаем активную подписку
+            subscription = self.subscription_repo.get_active_by_child_id(child.id)
+            if subscription and subscription.status not in [SubscriptionStatus.CANCELLED, SubscriptionStatus.EXPIRED]:
+                subscriptions.append(subscription)
+                continue
+            # Получаем ожидающую оплаты подписку
+            subscription = self.subscription_repo.get_pending_payment_by_child_id(child.id)
+            if subscription and subscription.status not in [SubscriptionStatus.CANCELLED, SubscriptionStatus.EXPIRED]:
+                subscriptions.append(subscription)
+                continue
+            # Получаем приостановленную подписку (если есть)
+            paused_subscription = self.subscription_repo.get_paused_by_child_id(child.id)
+            if paused_subscription and paused_subscription.status == SubscriptionStatus.PAUSED:
+                subscriptions.append(paused_subscription)
+
+        if len(subscriptions) <= 1:
+            return {child.id: 0.0 for child in children}
+
+        # Разделяем подписки на оплаченные и новые
+        paid_subscriptions = [
+            s for s in subscriptions
+            if s.payment and s.payment.status.value == "completed"
+            and s.status in [SubscriptionStatus.ACTIVE, SubscriptionStatus.PAUSED]
+        ]
+        new_subscriptions = [
+            s for s in subscriptions
+            if not s.payment or s.payment.status.value != "completed"
+            or s.status == SubscriptionStatus.PENDING_PAYMENT
+        ]
+
+        discounts = {child.id: 0.0 for child in children}
+        n = len(children)
+        if not paid_subscriptions:
+            # Только новые подписки: скидка к (N-1) самым дешевым
+            sorted_subs = sorted(subscriptions, key=lambda s: s.plan.price_monthly)
+            for sub in sorted_subs[:n-1]:
+                discounts[sub.child_id] = 20.0
+            return discounts
+        else:
+            # Есть оплаченные: скидка к min(len(new), N-1) самым дешевым новым
+            if not new_subscriptions:
+                return discounts
+            sorted_new = sorted(new_subscriptions, key=lambda s: s.plan.price_monthly)
+            for sub in sorted_new[:min(len(new_subscriptions), n-1)]:
+                discounts[sub.child_id] = 20.0
+            return discounts
+
+    def recalculate_discounts_for_user(self, user_id: int) -> None:
+        """Пересчитывает скидки для всех подписок пользователя"""
+        discounts = self._calculate_discount_for_user(user_id)
+        
+        for child_id, discount_percent in discounts.items():
+            # Получаем подписку ребенка (активную или ожидающую оплаты)
+            subscription = self.subscription_repo.get_active_by_child_id(child_id)
+            if not subscription:
+                subscription = self.subscription_repo.get_pending_payment_by_child_id(child_id)
+            
+            if subscription:
+                # Пересчитываем цену
+                new_price = subscription.plan.price_monthly * (1 - discount_percent / 100)
+                
+                if (subscription.discount_percent != discount_percent or 
+                    subscription.individual_price != new_price):
+                    update_data = SubscriptionUpdateFields(
+                        discount_percent=discount_percent,
+                        individual_price=new_price
+                    )
+                    self.subscription_repo.update(subscription.id, update_data)
+
     def get_user_subscriptions(self, user_id: int) -> List[SubscriptionWithDetailsResponse]:
         """Получает подписки пользователя с подробными данными"""
         print(f"DEBUG: get_user_subscriptions вызван для user_id={user_id}")
@@ -135,7 +220,8 @@ class SubscriptionService:
                     is_paused=subscription.is_paused,
                     child_name=subscription.child.name,
                     plan_name=subscription.plan.name,
-                    plan_price=subscription.plan.price_monthly,
+                    plan_price=subscription.plan.price_monthly,  # Базовая цена плана
+                    final_price=subscription.individual_price,  # Цена со скидкой
                     user_id=subscription.user.id,
                     user_name=subscription.user.name
                 )
@@ -160,9 +246,17 @@ class SubscriptionService:
         if not active_subscription:
             raise ValueError(f"У ребенка нет активной подписки для отмены")
         
+        user_id = active_subscription.user.id
+        
         if active_subscription.payment_id:
             # Отменяем платеж (это автоматически деактивирует подписку)
-            return self.payment_service.refund_payment(active_subscription.payment_id)
+            result = self.payment_service.refund_payment(active_subscription.payment_id)
+            
+            # ПОСЛЕ отмены подписки пересчитываем скидки для всех детей пользователя
+            if result:
+                self.recalculate_discounts_for_user(user_id)
+            
+            return result
         
         return False
 
@@ -257,7 +351,13 @@ class SubscriptionService:
         update_fields = SubscriptionUpdateFields(**update_dict)
         
         # Используем универсальный метод репозитория
-        return self.subscription_repo.update(subscription_id, update_fields)
+        updated_subscription = self.subscription_repo.update(subscription_id, update_fields)
+        
+        # ПОСЛЕ обновления пересчитываем скидки для всех детей пользователя
+        if updated_subscription:
+            self.recalculate_discounts_for_user(subscription.user.id)
+        
+        return updated_subscription
 
     def get_pending_subscriptions_for_user(self, user_id: int) -> List[Subscription]:
         """Получает подписки пользователя ожидающие оплату"""

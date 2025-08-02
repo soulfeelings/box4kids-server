@@ -129,3 +129,17 @@ async def resume_subscription(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
  
+
+@router.post("/recalculate-discounts")
+async def recalculate_discounts(
+    current_user: UserFromToken = Depends(get_current_user),
+    subscription_service: SubscriptionService = Depends(get_subscription_service)
+):
+    """Принудительно пересчитывает скидки для всех подписок пользователя"""
+    try:
+        subscription_service.recalculate_discounts_for_user(current_user.id)
+        return {"message": "Скидки успешно пересчитаны"}
+    except Exception as e:
+        print(f"Ошибка при пересчете скидок: {e}")
+        raise HTTPException(status_code=500, detail="Ошибка при пересчете скидок")
+ 
