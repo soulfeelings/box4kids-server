@@ -60,8 +60,8 @@ dev-up:
 
 dev-reset:
 	$(COMPOSE_CMD) -f docker-compose.dev.yml down -v --remove-orphans
-	docker system prune -a -f
-	docker volume prune -f
+	docker image prune -f --filter label=com.docker.compose.project=server
+	docker volume prune -f --filter label=com.docker.compose.project=server
 
 dev-build:
 	$(COMPOSE_CMD) -f docker-compose.dev.yml build --no-cache
