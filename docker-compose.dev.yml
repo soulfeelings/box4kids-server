@@ -33,6 +33,7 @@ services:
     build: .
     ports:
       - "8000:8000"
+    user: "1000:1000"
     environment:
       DATABASE_URL: postgresql://postgres:password@postgres:5432/box4kids
       REDIS_URL: redis://redis:6379
