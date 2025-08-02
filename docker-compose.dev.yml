@@ -16,6 +16,12 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 80M
+        reservations:
+          memory: 40M
 
   redis:
     image: redis:7-alpine
@@ -28,6 +34,12 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 50M
+        reservations:
+          memory: 25M
 
   api:
     build: .
@@ -48,6 +60,12 @@ services:
       - .:/app
       - /app/venv
     command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload --log-level debug
+    deploy:
+      resources:
+        limits:
+          memory: 300M
+        reservations:
+          memory: 150M
 
 volumes:
   postgres_data:
