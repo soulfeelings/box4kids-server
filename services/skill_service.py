@@ -2,6 +2,7 @@ from typing import List
 from sqlalchemy.orm import Session
 from repositories.skill_repository import SkillRepository
 from schemas.skill_schemas import SkillResponse, SkillsListResponse
+from core.i18n import translate
 
 
 class SkillService:
@@ -10,11 +11,11 @@ class SkillService:
     def __init__(self, db: Session):
         self._repository = SkillRepository(db)
     
-    def get_all_skills(self) -> SkillsListResponse:
+    def get_all_skills(self, lang: str = 'ru') -> SkillsListResponse:
         """Получить все навыки"""
         skills = self._repository.get_all()
         skill_responses = [
-            SkillResponse.model_validate(skill) for skill in skills
+            SkillResponse(id=skill.id, name=translate(skill.name, lang)) for skill in skills
         ]
         return SkillsListResponse(skills=skill_responses)
     

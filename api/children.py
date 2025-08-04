@@ -1,7 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from core.database import get_db
 from core.security import get_current_user
+from core.i18n import translate
 from services.child_service import ChildService
 from services.subscription_service import SubscriptionService
 from services.subscription_plan_service import SubscriptionPlanService
@@ -79,16 +80,17 @@ async def create_child(
 async def get_child(
     child_id: int,
     current_user: UserFromToken = Depends(get_current_user),
-    child_service: ChildService = Depends(get_child_service)
+    child_service: ChildService = Depends(get_child_service),
+    request: Request = None
 ):
-    """Получить ребенка по ID с интересами и навыками"""
     child = child_service.get_child_by_id(child_id)
+    lang = request.state.lang if request and hasattr(request.state, 'lang') else 'ru'
     if not child:
-        raise HTTPException(status_code=404, detail="Ребенок не найден")
+        raise HTTPException(status_code=404, detail=translate('child_not_found', lang))
     
     # Проверяем что ребенок принадлежит текущему пользователю
     if child.parent_id != current_user.id:
-        raise HTTPException(status_code=403, detail="Нет доступа к этому ребенку")
+        raise HTTPException(status_code=403, detail=translate('no_access_to_child', lang))
     
     return child
 
@@ -98,20 +100,22 @@ async def update_child(
     child_id: int,
     update_data: ChildUpdate,
     current_user: UserFromToken = Depends(get_current_user),
-    child_service: ChildService = Depends(get_child_service)
+    child_service: ChildService = Depends(get_child_service),
+    request: Request = None
 ):
+    lang = request.state.lang if request and hasattr(request.state, 'lang') else 'ru'
     """Обновить ребенка (включая интересы и навыки)"""
     # Сначала проверяем что ребенок существует и принадлежит пользователю
     existing_child = child_service.get_child_by_id(child_id)
     if not existing_child:
-        raise HTTPException(status_code=404, detail="Ребенок не найден")
+        raise HTTPException(status_code=404, detail=translate('child_not_found', lang))
     
     if existing_child.parent_id != current_user.id:
-        raise HTTPException(status_code=403, detail="Нет доступа к этому ребенку")
+        raise HTTPException(status_code=403, detail=translate('no_access_to_child', lang))
     
     child = child_service.update_child(child_id, update_data)
     if not child:
-        raise HTTPException(status_code=404, detail="Ребенок не найден")
+        raise HTTPException(status_code=404, detail=translate('child_not_found', lang))
     
     return child
 
@@ -121,16 +125,18 @@ async def delete_child(
     child_id: int,
     current_user: UserFromToken = Depends(get_current_user),
     child_service: ChildService = Depends(get_child_service),
-    subscription_service: SubscriptionService = Depends(get_subscription_service)
+    subscription_service: SubscriptionService = Depends(get_subscription_service),
+    request: Request = None
 ):
+    lang = request.state.lang if request and hasattr(request.state, 'lang') else 'ru'
     """Удалить ребенка"""
     # Сначала проверяем что ребенок существует и принадлежит пользователю
     existing_child = child_service.get_child_by_id(child_id)
     if not existing_child:
-        raise HTTPException(status_code=404, detail="Ребенок не найден")
+        raise HTTPException(status_code=404, detail=translate('child_not_found', lang))
     
     if existing_child.parent_id != current_user.id:
-        raise HTTPException(status_code=403, detail="Нет доступа к этому ребенку")
+        raise HTTPException(status_code=403, detail=translate('no_access_to_child', lang))
     
     # Удаляем ребенка с callback для пересчета скидок
     success = child_service.delete_child(
@@ -138,6 +144,6 @@ async def delete_child(
         on_delete=lambda parent_id: subscription_service.recalculate_discounts_for_user(parent_id)
     )
     if not success:
-        raise HTTPException(status_code=404, detail="Ребенок не найден")
+        raise HTTPException(status_code=404, detail=translate('child_not_found', lang))
     
-    return {"message": "Ребенок удален"} 
+    return {"message": translate('child_deleted', lang)} 

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
 from core.database import get_db
 from core.security import get_current_user
@@ -14,6 +14,7 @@ from schemas.toy_box_schemas import (
 )
 from models.toy_box import ToyBoxStatus
 from typing import List
+from core.i18n import translate
 
 router = APIRouter(prefix="/toy-boxes", tags=["Toy Boxes"])
 
@@ -26,14 +27,16 @@ def get_toy_box_service(db: Session = Depends(get_db)) -> ToyBoxService:
 async def get_current_box(
     child_id: int,
     current_user: UserFromToken = Depends(get_current_user),
-    toy_box_service: ToyBoxService = Depends(get_toy_box_service)
+    toy_box_service: ToyBoxService = Depends(get_toy_box_service),
+    req: Request = None
 ):
+    lang = req.state.lang if req and hasattr(req.state, 'lang') else 'ru'
     """Получить текущий набор ребёнка"""
     # TODO: Проверить что ребенок принадлежит текущему пользователю
     current_box = toy_box_service.get_current_box_by_child(child_id)
     
     if not current_box:
-        raise HTTPException(status_code=404, detail="Текущий набор не найден")
+        raise HTTPException(status_code=404, detail=translate('current_box_not_found', lang))
     
     return current_box
 
@@ -41,13 +44,15 @@ async def get_current_box(
 @router.get("/next/{child_id}", response_model=NextBoxResponse)
 async def get_next_box(
     child_id: int,
-    toy_box_service: ToyBoxService = Depends(get_toy_box_service)
+    toy_box_service: ToyBoxService = Depends(get_toy_box_service),
+    req: Request = None
 ):
+    lang = req.state.lang if req and hasattr(req.state, 'lang') else 'ru'
     """Получить следующий набор для ребёнка (генерируется на лету)"""
     try:
         next_box = toy_box_service.generate_next_box_for_child(child_id)
         if not next_box:
-            raise HTTPException(status_code=404, detail="Не удалось сформировать следующий набор")
+            raise HTTPException(status_code=404, detail=translate('failed_to_generate_next_box', lang))
         return next_box
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -70,8 +75,10 @@ async def create_toy_box(
 async def add_box_review(
     box_id: int,
     request: ToyBoxReviewRequest,
-    toy_box_service: ToyBoxService = Depends(get_toy_box_service)
+    toy_box_service: ToyBoxService = Depends(get_toy_box_service),
+    req: Request = None
 ):
+    lang = req.state.lang if req and hasattr(req.state, 'lang') else 'ru'
     """Добавить отзыв к набору"""
     result = toy_box_service.add_review(
         box_id=box_id,
@@ -81,9 +88,9 @@ async def add_box_review(
     )
     
     if not result["success"]:
-        raise HTTPException(status_code=400, detail=result["error"])
+        raise HTTPException(status_code=400, detail=translate('failed_to_add_review', lang))
     
-    return {"message": "Отзыв добавлен", "review": result["review"]}
+    return {"message": translate('review_added', lang), "review": result["review"]}
 
 
 @router.get("/{box_id}/reviews", response_model=ToyBoxReviewsResponse)
@@ -114,12 +121,14 @@ async def get_box_history(
 @router.get("/{box_id}", response_model=ToyBoxResponse)
 async def get_box_by_id(
     box_id: int,
-    toy_box_service: ToyBoxService = Depends(get_toy_box_service)
+    toy_box_service: ToyBoxService = Depends(get_toy_box_service),
+    req: Request = None
 ):
+    lang = req.state.lang if req and hasattr(req.state, 'lang') else 'ru'
     """Получить набор по ID"""
     box = toy_box_service.box_repo.get_by_id(box_id)
     
     if not box:
-        raise HTTPException(status_code=404, detail="Набор не найден")
+        raise HTTPException(status_code=404, detail=translate('box_not_found', lang))
     
     return box 
