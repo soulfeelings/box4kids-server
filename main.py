@@ -52,6 +52,10 @@ origins = [
     "http://localhost",
     "http://localhost:3000",  # для React/Vite
     "https://your-frontend-domain.com",
+    "http://13.51.85.137:3000",
+    "http://13.51.85.137",
+    "https://13.51.85.137",
+    "https://13.51.85.137:3000",
 ]
 
 # Настройка CORS
