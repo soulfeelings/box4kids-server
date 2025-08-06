@@ -1,4 +1,5 @@
 from sqlalchemy.orm import Session
+from sqlalchemy import text
 from repositories.interest_repository import InterestRepository
 from repositories.skill_repository import SkillRepository
 from repositories.toy_category_repository import ToyCategoryRepository
@@ -10,7 +11,7 @@ from services.category_mapping_service import CategoryMappingService
 
 # Хардкод данных интересов
 INTERESTS_DATA = [
-    {"name": "🧸 Конструкторы"},
+    {"name": "🧱 Конструкторы"},
     {"name": "🧸 Плюшевые"},
     {"name": "🎲 Ролевые"},
     {"name": "🧠 Развивающие"},
@@ -42,7 +43,7 @@ TOY_CATEGORIES_DATA = [
 # Маппинг категорий с интересами и навыками
 CATEGORY_MAPPINGS = {
     "Конструктор": {
-        "interests": ["🧸 Конструкторы", "⚙️ Техника"],
+        "interests": ["🧱 Конструкторы", "⚙️ Техника"],
         "skills": ["✋ Моторика", "🧠 Логика"]
     },
     "Творческий набор": {
@@ -166,8 +167,13 @@ def initialize_interests(db: Session) -> None:
     # Проверяем, есть ли уже интересы
     existing_interests = repository.get_all()
     if existing_interests:
-        print("Интересы уже инициализированы")
-        return
+        print("Обновляем существующие интересы...")
+        # Сначала удаляем связи в промежуточных таблицах
+        db.execute(text("DELETE FROM category_interests"))
+        db.execute(text("DELETE FROM child_interests"))
+        # Удаляем все старые данные
+        repository.delete_all()
+        print("Старые интересы удалены")
     
     # Создаем интересы
     interests = repository.create_many(INTERESTS_DATA)
@@ -181,8 +187,13 @@ def initialize_skills(db: Session) -> None:
     # Проверяем, есть ли уже навыки
     existing_skills = repository.get_all()
     if existing_skills:
-        print("Навыки уже инициализированы")
-        return
+        print("Обновляем существующие навыки...")
+        # Сначала удаляем связи в промежуточных таблицах
+        db.execute(text("DELETE FROM category_skills"))
+        db.execute(text("DELETE FROM child_skills"))
+        # Удаляем все старые данные
+        repository.delete_all()
+        print("Старые навыки удалены")
     
     # Создаем навыки
     skills = repository.create_many(SKILLS_DATA)
