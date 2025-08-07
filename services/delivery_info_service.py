@@ -26,10 +26,18 @@ class DeliveryInfoService:
         return DeliveryInfoListResponse(addresses=address_responses)
     
     def create_address(self, user_id: int, address_data: DeliveryInfoCreate) -> DeliveryInfoResponse:
-        """Создать новый адрес доставки для пользователя"""
+        """Создать новый адрес доставки для пользователя.
+        Перед созданием проверяем, что выбранная дата не находится в списке запрещённых дат."""
+        from services.delivery_date_exclusion_service import DeliveryDateExclusionService  # локальный импорт, чтобы избежать циклов
+        
+        # Проверяем дату
+        exclusion_service = DeliveryDateExclusionService(self._repository.db)
+        if not exclusion_service.is_date_allowed(address_data.date):
+            raise ValueError("Selected delivery date is not available")
+
         create_data = address_data.model_dump()
         create_data["user_id"] = user_id
-        
+
         address = self._repository.create(create_data)
         return DeliveryInfoResponse.model_validate(address)
     

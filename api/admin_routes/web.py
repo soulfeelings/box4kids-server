@@ -145,6 +145,14 @@ async def admin_subscriptions(request: Request):
         "request": request
     })
 
+@router.get("/delivery-dates", response_class=HTMLResponse)
+async def admin_delivery_dates(request: Request):
+    """Страница редактирования дат доставки"""
+    return templates.TemplateResponse("admin/delivery_dates.html", {
+        "request": request
+    })
+
+
 @router.get("/boxes", response_class=HTMLResponse)
 async def admin_boxes(request: Request):
     """Страница наборов админки"""

@@ -50,15 +50,18 @@ app = FastAPI(
 )
 
 
-origins = [
-    "http://localhost",
-    "http://localhost:3000",  # для React/Vite
-    "https://your-frontend-domain.com",
-    "http://13.51.85.137:3000",
-    "http://13.51.85.137",
-    "https://13.51.85.137",
-    "https://13.51.85.137:3000",
-]
+if settings.DEBUG:
+    origins = ["*"]  # Разрешаем все источники в режиме разработки
+else:
+    origins = [
+        "http://localhost",
+        "http://localhost:3000",  # для локального фронтенда
+        "https://your-frontend-domain.com",
+        "http://13.51.85.137:3000",
+        "http://13.51.85.137",
+        "https://13.51.85.137",
+        "https://13.51.85.137:3000",
+    ]
 
 # Настройка CORS
 app.add_middleware(
@@ -83,6 +86,10 @@ app.include_router(toy_categories.router)
 app.include_router(subscription_plans.router)
 app.include_router(delivery_addresses.router)
 app.include_router(toy_boxes.router)
+
+# Delivery dates public
+from api.delivery_dates import router as delivery_dates_router
+app.include_router(delivery_dates_router)
 
 @app.middleware("http")
 async def language_middleware(request: Request, call_next):
