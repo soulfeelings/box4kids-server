@@ -57,10 +57,14 @@
                             {% for child in user.children %}
                                 {% if child.current_box %}
                                     <div class="mb-1">
-                                        <span class="badge bg-info status-badge">{{ child.current_box.status }}</span>
-                                        <small class="text-muted d-block">
-                                            Доставка: {{ child.current_box.delivery_date }}
-                                        </small>
+                                        <div class="d-flex align-items-center gap-1">
+                                            <select class="form-select form-select-sm w-auto" onchange="updateBoxStatus(this, {{ child.current_box.id }})">
+                                                {% for st in ['planned','assembled','shipped','delivered','returned'] %}
+                                                    <option value="{{ st }}" {% if child.current_box.status == st %}selected{% endif %}>{{ st }}</option>
+                                                {% endfor %}
+                                            </select>
+                                            <small class="text-muted">{{ child.current_box.delivery_date }}</small>
+                                        </div>
                                     </div>
                                 {% else %}
                                     <span class="text-muted">Нет</span>
@@ -222,6 +226,25 @@ function viewUserDetails(userId) {
             console.error('Ошибка загрузки данных пользователя:', error);
             alert('Ошибка загрузки данных пользователя');
         });
+}
+
+// Обновление статуса бокса
+function updateBoxStatus(selectEl, boxId) {
+    const newStatus = selectEl.value;
+    fetch(`/admin/toy-boxes/${boxId}/status?new_status=${newStatus}`, {
+        method: 'PUT'
+    })
+    .then(r => {
+        if (!r.ok) throw new Error('Fail');
+        return r.json();
+    })
+    .then(() => {
+        // Опционально показываем toast
+    })
+    .catch(err => {
+        alert('Ошибка обновления статуса');
+        console.error(err);
+    });
 }
 
 // Редактирование пользователя

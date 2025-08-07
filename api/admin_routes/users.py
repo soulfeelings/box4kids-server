@@ -349,7 +349,7 @@ async def change_user_role(
 @router.put("/toy-boxes/{box_id}/status")
 async def update_toy_box_status(
     box_id: int,
-    new_status: str,
+    new_status: str = Query(..., description="New status value"),
     current_admin: dict = Depends(get_current_admin),
     toy_box_service: ToyBoxService = Depends(lambda db=Depends(get_db): ToyBoxService(db))
 ):

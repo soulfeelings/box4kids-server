@@ -96,6 +96,25 @@ async def admin_users(
         for child in user.children:
             current_box = toy_box_service.get_current_box_by_child(child.id)
             next_box = toy_box_service.generate_next_box_for_child(child.id)
+
+            current_box_data = None
+            if current_box:
+                current_box_data = {
+                    "id": current_box.id,
+                    "delivery_date": str(current_box.delivery_date) if current_box.delivery_date else None,
+                    "return_date": str(current_box.return_date) if current_box.return_date else None,
+                    "status": getattr(current_box, 'status', None),
+                }
+            
+            # Подготовка данных следующего набора с ID и статусом, если есть
+            next_box_data = None
+            if next_box:
+                next_box_data = {
+                    "id": getattr(next_box, 'id', None),
+                    "delivery_date": str(next_box.delivery_date) if next_box.delivery_date else None,
+                    "return_date": str(next_box.return_date) if next_box.return_date else None,
+                    "status": getattr(next_box, 'status', None),
+                }
             
             children.append({
                 "id": child.id,
@@ -104,8 +123,8 @@ async def admin_users(
                 "gender": child.gender.value,
                 "has_limitations": child.has_limitations,
                 "comment": child.comment,
-                "current_box": current_box,
-                "next_box": next_box
+                "current_box": current_box_data,
+                "next_box": next_box_data
             })
         
         # Получаем адреса доставки
@@ -233,6 +252,24 @@ async def api_user_detail(
         current_box = toy_box_service.get_current_box_by_child(child.id)
         next_box = toy_box_service.generate_next_box_for_child(child.id)
         
+        current_box_data = None
+        if current_box:
+            current_box_data = {
+                "id": current_box.id,
+                "delivery_date": str(current_box.delivery_date) if current_box.delivery_date else None,
+                "return_date": str(current_box.return_date) if current_box.return_date else None,
+                "status": getattr(current_box, 'status', None),
+            }
+
+        next_box_data = None
+        if next_box:
+            next_box_data = {
+                "id": getattr(next_box, 'id', None),
+                "delivery_date": str(next_box.delivery_date) if next_box.delivery_date else None,
+                "return_date": str(next_box.return_date) if next_box.return_date else None,
+                "status": getattr(next_box, 'status', None),
+            }
+        
         children.append({
             "id": child.id,
             "name": child.name,
@@ -240,8 +277,8 @@ async def api_user_detail(
             "gender": child.gender.value,
             "has_limitations": child.has_limitations,
             "comment": child.comment,
-            "current_box": current_box,
-            "next_box": next_box
+            "current_box": current_box_data,
+            "next_box": next_box_data
         })
     
     # Получаем адреса доставки
