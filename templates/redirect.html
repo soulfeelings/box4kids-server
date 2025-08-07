@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Box4Kids - Демо админка</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .welcome-card {
+            background: white;
+            border-radius: 20px;
+            padding: 3rem;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            text-align: center;
+            max-width: 600px;
+        }
+        .btn-custom {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            color: white;
+            padding: 12px 30px;
+            border-radius: 25px;
+            font-weight: 600;
+            margin: 10px;
+            transition: transform 0.3s ease;
+        }
+        .btn-custom:hover {
+            transform: translateY(-2px);
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="welcome-card">
+        <h1 class="mb-4">🎁 Box4Kids</h1>
+        <h3 class="mb-4">Демо админка</h3>
+        <p class="text-muted mb-4">
+            Демонстрация админ-панели для сервиса аренды игрушек для детей
+        </p>
+        
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <a href="/admin/dashboard" class="btn btn-custom w-100">
+                    📊 Дашборд
+                </a>
+            </div>
+            <div class="col-md-6 mb-3">
+                <a href="/admin/users" class="btn btn-custom w-100">
+                    👥 Пользователи
+                </a>
+            </div>
+        </div>
+        
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <a href="/admin/subscriptions" class="btn btn-custom w-100">
+                    💳 Подписки
+                </a>
+            </div>
+            <div class="col-md-6 mb-3">
+                <a href="/admin/boxes" class="btn btn-custom w-100">
+                    📦 Наборы
+                </a>
+            </div>
+        </div>
+        
+        <div class="mt-4">
+            <small class="text-muted">
+                Демо-версия с моковыми данными
+            </small>
+        </div>
+    </div>
+</body>
+</html> 

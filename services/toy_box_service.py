@@ -355,20 +355,20 @@ class ToyBoxService:
         return updated_boxes
 
     def sync_active_boxes_with_delivery_date_and_time(self, delivery_info_id: int, user_id: int, new_date: date, new_time: str) -> List[ToyBox]:
-        """Синхронизировать активные наборы с обновленной датой и временем доставки"""
-        from datetime import timedelta
-        
-        # Получаем только активные наборы пользователя с этим delivery_info_id
-        active_boxes = self.box_repo.get_active_boxes_by_delivery_info_id(delivery_info_id, user_id)
+        """Синхронизирует активные наборы с новой датой и временем доставки"""
+        active_boxes = self.box_repo.get_active_boxes_by_user(user_id)
         
         updated_boxes = []
         for box in active_boxes:
-            # Рассчитываем новую дату возврата
-            return_date = new_date + timedelta(days=settings.RENTAL_PERIOD)
-            
-            # Обновляем дату и время доставки
-            updated_box = self.box_repo.update_delivery_date_and_time(box.id, new_date, new_time, return_date)
-            if updated_box:
-                updated_boxes.append(updated_box)
+            if box.delivery_info_id == delivery_info_id:
+                box.delivery_date = new_date
+                box.delivery_time = new_time
+                box.return_time = new_time
+                self.db.commit()
+                updated_boxes.append(box)
         
-        return updated_boxes 
+        return updated_boxes
+
+    def get_active_boxes_count(self) -> int:
+        """Получает количество активных наборов для админки"""
+        return self.box_repo.get_active_boxes_count() 
