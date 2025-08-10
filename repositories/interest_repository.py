@@ -47,4 +47,16 @@ class InterestRepository:
         for interest in interests:
             self._db.refresh(interest)
         
-        return interests 
+        return interests
+    
+    def delete(self, interest_id: int) -> bool:
+        """Удалить интерес по ID"""
+        interest = self.get_by_id(interest_id)
+        if interest:
+            self._db.delete(interest)
+            return True
+        return False
+    
+    def delete_all(self) -> None:
+        """Удалить все интересы"""
+        self._db.query(Interest).delete() 

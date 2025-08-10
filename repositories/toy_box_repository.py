@@ -133,4 +133,28 @@ class ToyBoxRepository:
             .filter(ToyBoxReview.box_id == box_id)
             .order_by(ToyBoxReview.created_at.desc())
             .all()
+        )
+
+    def get_active_boxes_count(self) -> int:
+        """Получить количество активных наборов"""
+        active_statuses = [ToyBoxStatus.PLANNED, ToyBoxStatus.ASSEMBLED, ToyBoxStatus.SHIPPED, ToyBoxStatus.DELIVERED]
+        return (
+            self.db.query(ToyBox)
+            .filter(ToyBox.status.in_(active_statuses))
+            .count()
+        )
+
+    def get_active_boxes_by_user(self, user_id: int) -> List[ToyBox]:
+        """Получить активные наборы пользователя"""
+        active_statuses = [ToyBoxStatus.PLANNED, ToyBoxStatus.ASSEMBLED, ToyBoxStatus.SHIPPED, ToyBoxStatus.DELIVERED]
+        return (
+            self.db.query(ToyBox)
+            .options(joinedload(ToyBox.items))
+            .join(Child, ToyBox.child_id == Child.id)
+            .filter(
+                ToyBox.status.in_(active_statuses),
+                Child.parent_id == user_id
+            )
+            .order_by(ToyBox.created_at.desc())
+            .all()
         ) 
