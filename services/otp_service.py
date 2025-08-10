@@ -1,8 +1,12 @@
 from typing import Dict, Optional
 import random
 import time
+import logging
 from core.interfaces import IOTPStorage
 from core.config import settings
+from .sms_gateway import SMSGateway, SMSPayload
+
+logger = logging.getLogger(__name__)
 
 
 class OTPService:
@@ -11,20 +15,34 @@ class OTPService:
     def __init__(self, storage: IOTPStorage):
         self.storage = storage
     
-    def send_code(self, phone: str) -> bool:
-        """Отправляет OTP код (мок)"""
+    async def send_code(self, phone: str) -> bool:
+        """Отправляет OTP код"""
         # Генерируем случайный 4-значный код
         code = str(random.randint(1000, 9999))
         
         # Сохраняем код через storage
         success = self.storage.store_code(phone, code)
         
-        if success:
-            # В реальной жизни здесь будет отправка SMS
-            print(f"[MOCK] SMS отправлена на {phone}: код {code}")
+        if not success:
+            logger.error(f"Не удалось сохранить OTP код для {phone}")
+            return False
+        
+        # Если SMS отключена (dev режим) - только логируем
+        if not settings.SMS_ENABLED:
+            logger.info(f"[DEV MODE] OTP код для {phone}: {code}")
             return True
         
-        return False
+        # Production: отправляем SMS
+        try:
+            sms_text = f"Box4Kids OTP: {code}"
+            await SMSGateway.send_single_sms(phone, sms_text)
+            logger.info(f"SMS с OTP кодом отправлена на {phone}")
+            return True
+        except Exception as e:
+            logger.error(f"Ошибка отправки SMS на {phone}: {str(e)}")
+            # В случае ошибки SMS удаляем сохраненный код
+            self.storage.delete_code(phone)
+            return False
     
     def verify_code(self, phone: str, code: str) -> bool:
         """Проверяет OTP код"""

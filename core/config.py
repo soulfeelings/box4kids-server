@@ -19,6 +19,12 @@ class Settings(BaseSettings):
     OTP_TTL_SECONDS: int = 300  # 5 минут
     OTP_MAX_ATTEMPTS: int = 3
     
+    # SMS Gateway (getsms.uz)
+    SMS_LOGIN: str = os.getenv("SMS_LOGIN", "")
+    SMS_PASSWORD: str = os.getenv("SMS_PASSWORD", "")
+    SMS_NICKNAME: str = os.getenv("SMS_NICKNAME", "")
+    SMS_ENABLED: bool = os.getenv("SMS_ENABLED", "false").lower() == "true"
+    
     # ToyBox periods (in days)
     INITIAL_DELIVERY_PERIOD: int = 7  # Первая доставка через 7 дней
     RENTAL_PERIOD: int = 14  # Период аренды 14 дней
@@ -32,7 +38,7 @@ class Settings(BaseSettings):
     
     # App
     APP_NAME: str = "Box4Kids"
-    DEBUG: bool = True
+    DEBUG: bool = os.getenv("DEBUG", "true").lower() == "true"
     
     class Config:
         env_file = ".env"
