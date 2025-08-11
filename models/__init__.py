@@ -9,6 +9,7 @@ from .toy_category import ToyCategory
 from .subscription_plan import SubscriptionPlan
 from .plan_toy_configuration import PlanToyConfiguration
 from .toy_box import ToyBox, ToyBoxItem, ToyBoxReview, ToyBoxStatus
+from .allowed_delivery_date import AllowedDeliveryDate
 
 __all__ = [
     "User", "UserRole",
@@ -21,5 +22,6 @@ __all__ = [
     "ToyCategory",
     "SubscriptionPlan",
     "PlanToyConfiguration",
-    "ToyBox", "ToyBoxItem", "ToyBoxReview", "ToyBoxStatus"
+    "ToyBox", "ToyBoxItem", "ToyBoxReview", "ToyBoxStatus",
+    "AllowedDeliveryDate",
 ] 
