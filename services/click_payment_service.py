@@ -6,6 +6,7 @@ from repositories.payment_repository import PaymentRepository
 from repositories.subscription_repository import SubscriptionRepository
 from services.click_merchant_service import ClickMerchantService
 from utils.merchant_trans_id import create_merchant_trans_id
+from utils.currency import sums_to_tiyin, tiyin_to_sums
 import logging
 
 
@@ -155,8 +156,8 @@ class ClickPaymentService:
                         "error_message": "Нет доступа к подписке"
                     }
 
-            total_amount = sum(int(sub.individual_price * 100) for sub in subscriptions)  # в тийинах
-            logging.info(f"🔵 [CLICK] Calculated total amount: {total_amount} tiyin ({total_amount/100} sums)")
+            total_amount = sum(sums_to_tiyin(sub.individual_price) for sub in subscriptions)
+            logging.info(f"🔵 [CLICK] Calculated total amount: {total_amount} tiyin ({tiyin_to_sums(total_amount)} sums)")
             
             merchant_trans_id = create_merchant_trans_id("subscription", user_id, subscription_ids)
             logging.info(f"🔵 [CLICK] Generated merchant_trans_id: {merchant_trans_id}")
@@ -165,7 +166,7 @@ class ClickPaymentService:
             logging.info(f"🔵 [CLICK] Creating payment record in database")
             payment = Payment(
                 user_id=user_id,
-                amount=total_amount / 100,  # конвертируем из тийинов в сумы
+                amount=tiyin_to_sums(total_amount),
                 currency="UZS",
                 status=PaymentStatus.PENDING,
                 payment_type=PaymentType.CLICK,
