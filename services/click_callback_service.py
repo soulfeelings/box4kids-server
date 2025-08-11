@@ -5,6 +5,7 @@ from repositories.payment_repository import PaymentRepository
 from repositories.subscription_repository import SubscriptionRepository
 from services.toy_box_service import ToyBoxService
 from utils.click_signature import verify_click_signature
+from utils.currency import validate_amount_match, is_valid_payment_amount
 from core.config import settings
 import json
 import logging
@@ -35,19 +36,36 @@ class ClickCallbackService:
 
     def _verify_signature(self, params: ClickCallbackParams) -> bool:
         """Проверить подпись Click callback"""
+        # В development режиме пропускаем проверку для удобства тестирования
         if settings.ENVIRONMENT == "development":
+            logging.info("Skipping Click signature verification in development mode")
             return True
+        
+        # В production всегда проверяем подпись
+        if not settings.CLICK_SECRET_KEY:
+            logging.error("CLICK_SECRET_KEY not configured for production")
+            return False
 
-        return verify_click_signature(
-            params.click_trans_id,
-            params.service_id,
-            params.merchant_trans_id,
-            params.merchant_prepare_id or "",
-            params.amount,
-            params.action,
-            params.sign_time,
-            params.sign_string
-        )
+        try:
+            is_valid = verify_click_signature(
+                params.click_trans_id,
+                params.service_id,
+                params.merchant_trans_id,
+                params.merchant_prepare_id or "",
+                params.amount,
+                params.action,
+                params.sign_time,
+                params.sign_string
+            )
+            
+            if not is_valid:
+                logging.warning(f"Invalid Click signature for transaction {params.click_trans_id}")
+            
+            return is_valid
+            
+        except Exception as e:
+            logging.error(f"Error verifying Click signature: {e}")
+            return False
 
     def _create_response(self, params: ClickCallbackParams, error_code: int, error_note: str) -> Dict:
         """Создать ответ для Click"""
@@ -93,9 +111,18 @@ class ClickCallbackService:
         if not payment:
             return self._create_response(params, -5, "Payment not found")
 
-        # Проверить сумму (конвертируем в тийины для сравнения)
-        payment_amount_tiyin = int(payment.amount * 100)
-        if payment_amount_tiyin != params.amount:
+        # Проверить валидность суммы платежа
+        if not is_valid_payment_amount(payment.amount):
+            logging.error(f"Invalid payment amount in database: {payment.amount}")
+            return self._create_response(params, -2, "Invalid payment amount")
+        
+        # Проверить соответствие сумм с использованием утилиты
+        if not validate_amount_match(payment.amount, params.amount):
+            return self._create_response(params, -2, "Invalid amount")
+        
+        # Дополнительная проверка на разумность суммы от Click
+        if params.amount <= 0:
+            logging.error(f"Invalid amount from Click: {params.amount}")
             return self._create_response(params, -2, "Invalid amount")
 
         # Проверить что платеж еще не завершен

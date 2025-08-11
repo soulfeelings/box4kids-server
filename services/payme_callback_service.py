@@ -5,6 +5,7 @@ from repositories.payment_repository import PaymentRepository
 from repositories.subscription_repository import SubscriptionRepository
 from services.toy_box_service import ToyBoxService
 from utils.payme_signature import verify_payme_signature
+from utils.currency import validate_amount_match, is_valid_payment_amount, sums_to_tiyin
 from core.config import settings
 import json
 import logging
@@ -45,17 +46,34 @@ class PaymeCallbackService:
 
     def _verify_signature(self, signature: str, body: bytes) -> bool:
         """Проверить подпись Payme callback"""
+        # В development режиме пропускаем проверку для удобства тестирования
         if settings.ENVIRONMENT == "development":
+            logging.info("Skipping Payme signature verification in development mode")
             return True
-
-        # Вычисляем HMAC-SHA256 от тела запроса
-        calculated = hmac.new(
-            settings.PAYME_SECRET_KEY.encode(),
-            body,
-            hashlib.sha256
-        ).hexdigest()
         
-        return calculated == signature
+        # В production всегда проверяем подпись
+        if not settings.PAYME_SECRET_KEY:
+            logging.error("PAYME_SECRET_KEY not configured for production")
+            return False
+
+        try:
+            # Вычисляем HMAC-SHA256 от тела запроса
+            calculated = hmac.new(
+                settings.PAYME_SECRET_KEY.encode(),
+                body,
+                hashlib.sha256
+            ).hexdigest()
+            
+            is_valid = calculated == signature
+            
+            if not is_valid:
+                logging.warning("Invalid Payme signature received")
+            
+            return is_valid
+            
+        except Exception as e:
+            logging.error(f"Error verifying Payme signature: {e}")
+            return False
 
     def _create_error_response(self, request_id: int, error_code: int, message: str) -> Dict:
         """Создать ответ с ошибкой для Payme"""
@@ -153,13 +171,33 @@ class PaymeCallbackService:
                     "Access denied to subscription"
                 )
 
-        # Проверяем сумму (в тийинах)
-        expected_amount = sum(int(sub.individual_price * 100) for sub in subscriptions)
-        if params.amount != expected_amount:
+        # Проверяем суммы подписок и конвертируем в тийины
+        total_sums = sum(sub.individual_price for sub in subscriptions)
+        
+        # Проверяем валидность общей суммы
+        if not is_valid_payment_amount(total_sums):
+            logging.error(f"Invalid total subscription amount: {total_sums}")
             return self._create_error_response(
                 params.request_id,
                 self.ERROR_CODES["INVALID_AMOUNT"],
-                f"Invalid amount. Expected: {expected_amount}, got: {params.amount}"
+                "Invalid subscription amount"
+            )
+        
+        # Дополнительная проверка на разумность суммы от Payme
+        if params.amount <= 0:
+            logging.error(f"Invalid amount from Payme: {params.amount}")
+            return self._create_error_response(
+                params.request_id,
+                self.ERROR_CODES["INVALID_AMOUNT"],
+                "Amount must be positive"
+            )
+        
+        # Проверяем соответствие сумм с использованием утилиты
+        if not validate_amount_match(total_sums, params.amount):
+            return self._create_error_response(
+                params.request_id,
+                self.ERROR_CODES["INVALID_AMOUNT"],
+                f"Amount mismatch. Expected: {sums_to_tiyin(total_sums)}, got: {params.amount}"
             )
 
         return self._create_success_response(params.request_id, {"allow": True})
