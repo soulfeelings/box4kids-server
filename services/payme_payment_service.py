@@ -9,7 +9,6 @@ from repositories.subscription_repository import SubscriptionRepository
 from services.payme_subscribe_service import PaymeSubscribeService
 from services.toy_box_service import ToyBoxService
 import logging
-import json
 
 
 class PaymePaymentService:
