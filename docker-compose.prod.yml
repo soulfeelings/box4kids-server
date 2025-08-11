@@ -1,0 +1,99 @@
+version: "3.8"
+
+services:
+  postgres:
+    image: postgres:15
+    container_name: box4kids-db-prod
+    environment:
+      POSTGRES_DB: box4kids
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - postgres_data_prod:/var/lib/postgresql/data
+    networks:
+      - box4kids-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+
+  redis:
+    image: redis:7-alpine
+    container_name: box4kids-redis-prod
+    volumes:
+      - redis_data_prod:/data
+    networks:
+      - box4kids-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+        reservations:
+          memory: 64M
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+    container_name: box4kids-api-prod
+    ports:
+      - "${PORT:-8000}:8000"
+    environment:
+      DATABASE_URL: postgresql://postgres:${DB_PASSWORD}@postgres:5432/box4kids
+      REDIS_URL: redis://redis:6379
+      ENVIRONMENT: production
+      DEBUG: "false"
+      SECRET_KEY: ${SECRET_KEY}
+      
+      # Click Payment System
+      CLICK_MERCHANT_ID: ${CLICK_MERCHANT_ID}
+      CLICK_SECRET_KEY: ${CLICK_SECRET_KEY}
+      CLICK_SERVICE_ID: ${CLICK_SERVICE_ID}
+      CLICK_MERCHANT_USER_ID: ${CLICK_MERCHANT_USER_ID}
+      
+      # Payme Payment System
+      PAYME_MERCHANT_ID: ${PAYME_MERCHANT_ID}
+      PAYME_SECRET_KEY: ${PAYME_SECRET_KEY}
+      PAYME_SUBSCRIBE_API_URL: https://checkout.paycom.uz/api
+      PAYME_MERCHANT_API_URL: https://merchant.paycom.uz/api
+      PAYME_TEST_MODE: "false"
+      
+      # SMS Gateway
+      SMS_LOGIN: ${SMS_LOGIN}
+      SMS_PASSWORD: ${SMS_PASSWORD}
+      SMS_NICKNAME: ${SMS_NICKNAME}
+      SMS_ENABLED: "true"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - box4kids-network
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --workers 4
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 512M
+
+networks:
+  box4kids-network:
+    driver: bridge
+
+volumes:
+  postgres_data_prod:
+  redis_data_prod:

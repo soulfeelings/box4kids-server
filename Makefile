@@ -1,4 +1,4 @@
-.PHONY: menu dev-up dev-reset dev-build dev-deploy dev-stop db-up
+.PHONY: menu dev-up dev-reset dev-build dev-deploy dev-stop db-up prod-up prod-stop migrate
 
 # Docker commands
 COMPOSE_CMD = docker compose
@@ -12,7 +12,10 @@ menu:
 	@echo "4) dev-build     - Build dev image (no cache)"
 	@echo "5) dev-deploy    - Deploy dev containers (force recreate)"
 	@echo "6) db-up         - Start database only"
-	@read -p "Enter choice [1-15]: " choice; \
+	@echo "7) prod-up       - Start production environment"
+	@echo "8) prod-stop     - Stop production environment"
+	@echo "9) migrate       - Run database migrations"
+	@read -p "Enter choice [1-9]: " choice; \
 	case $$choice in \
 		1) make dev-up ;; \
 		2) make dev-stop ;; \
@@ -20,6 +23,9 @@ menu:
 		4) make dev-build ;; \
 		5) make dev-deploy ;; \
 		6) make db-up ;; \
+		7) make prod-up ;; \
+		8) make prod-stop ;; \
+		9) make migrate ;; \
 		*) echo "Invalid choice!" ;; \
 	esac
 
@@ -44,5 +50,18 @@ dev-stop:
 db-up:
 	$(COMPOSE_CMD) -f docker-compose.dev.yml up -d postgres
 
+# Production commands
+prod-up:
+	$(COMPOSE_CMD) -f docker-compose.prod.yml up -d
 
+prod-stop:
+	$(COMPOSE_CMD) -f docker-compose.prod.yml down
+
+# Database migrations
+migrate:
+	alembic upgrade head
+
+# Generate new migration
+migration:
+	alembic revision --autogenerate -m "$(MESSAGE)"
  

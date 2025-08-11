@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from api import auth, admin,users, subscriptions, payments, children, interests, skills, toy_categories, subscription_plans, delivery_addresses, toy_boxes
+from api import auth, admin,users, subscriptions, payments, children, interests, skills, toy_categories, subscription_plans, delivery_addresses, toy_boxes, click_payment, payme_payment, payment_callback
 from core.database import Base, engine, get_db
 from core.config import settings
 from core.data_initialization import initialize_all_data
@@ -75,6 +75,11 @@ app.include_router(users.router)
 app.include_router(subscriptions.router)
 app.include_router(payments.router)
 app.include_router(admin.router)
+
+# Платежные системы
+app.include_router(click_payment.router)
+app.include_router(payme_payment.router)
+app.include_router(payment_callback.router)
 
 app.include_router(children.router)
 app.include_router(interests.router)

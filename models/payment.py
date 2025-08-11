@@ -18,10 +18,14 @@ class Payment(Base):
     
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     amount: Mapped[float] = mapped_column(Float, nullable=False)
-    currency: Mapped[str] = mapped_column(String, default="RUB")
+    currency: Mapped[str] = mapped_column(String, default="UZS")
     status: Mapped[PaymentStatus] = mapped_column(Enum(PaymentStatus), default=PaymentStatus.PENDING)
     user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"))
     external_payment_id: Mapped[str] = mapped_column(String, nullable=True)  # ID из внешнего сервиса
+    click_trans_id: Mapped[str] = mapped_column(String(255), nullable=True)
+    payme_receipt_id: Mapped[str] = mapped_column(String(255), nullable=True)
+    merchant_trans_id: Mapped[str] = mapped_column(String(255), nullable=True)
+    payment_type: Mapped[str] = mapped_column(String(20), default="subscription")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=func.now())
     
     # Relationships

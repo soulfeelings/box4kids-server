@@ -25,6 +25,22 @@ class Settings(BaseSettings):
     SMS_NICKNAME: str = os.getenv("SMS_NICKNAME", "")
     SMS_ENABLED: bool = os.getenv("SMS_ENABLED", "false").lower() == "true"
     
+    # Click Payment System
+    CLICK_MERCHANT_ID: str = os.getenv("CLICK_MERCHANT_ID", "")
+    CLICK_SECRET_KEY: str = os.getenv("CLICK_SECRET_KEY", "")
+    CLICK_SERVICE_ID: str = os.getenv("CLICK_SERVICE_ID", "")
+    CLICK_MERCHANT_USER_ID: str = os.getenv("CLICK_MERCHANT_USER_ID", "")
+    
+    # Payme Payment System
+    PAYME_MERCHANT_ID: str = os.getenv("PAYME_MERCHANT_ID", "")
+    PAYME_SECRET_KEY: str = os.getenv("PAYME_SECRET_KEY", "")
+    PAYME_SUBSCRIBE_API_URL: str = os.getenv("PAYME_SUBSCRIBE_API_URL", "https://checkout.paycom.uz/api")
+    PAYME_MERCHANT_API_URL: str = os.getenv("PAYME_MERCHANT_API_URL", "https://merchant.paycom.uz/api")
+    PAYME_TEST_MODE: bool = os.getenv("PAYME_TEST_MODE", "true").lower() == "true"
+    
+    # Environment
+    ENVIRONMENT: str = os.getenv("ENVIRONMENT", "development")
+    
     # ToyBox periods (in days)
     INITIAL_DELIVERY_PERIOD: int = 7  # Первая доставка через 7 дней
     RENTAL_PERIOD: int = 14  # Период аренды 14 дней

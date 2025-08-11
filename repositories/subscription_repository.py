@@ -36,6 +36,12 @@ class SubscriptionRepository:
         """Получает подписку по ID"""
         return self.db.query(Subscription).filter(Subscription.id == subscription_id).first()
 
+    def get_by_ids(self, subscription_ids: List[int]) -> List[Subscription]:
+        """Получает подписки по списку ID"""
+        return self.db.query(Subscription).filter(
+            Subscription.id.in_(subscription_ids)
+        ).all()
+
     def get_by_child_id(self, child_id: int) -> List[Subscription]:
         """Получает все подписки ребенка"""
         return self.db.query(Subscription).filter(
