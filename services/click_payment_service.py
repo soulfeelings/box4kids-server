@@ -77,7 +77,6 @@ class ClickPaymentService:
 
             # Обновить статус в БД
             card_token.is_verified = True
-            self.db.commit()
 
             return {"success": True}
 
@@ -146,7 +145,6 @@ class ClickPaymentService:
                 click_payment.status = ClickPaymentStatus.FAILED
                 click_payment.error_code = result["error_code"]
                 click_payment.error_note = result["error_note"]
-                self.db.commit()
 
                 return {
                     "success": False,
@@ -155,7 +153,6 @@ class ClickPaymentService:
 
             # Обновить данные платежа
             click_payment.click_payment_id = result.get("payment_id")
-            self.db.commit()
 
             return {
                 "success": True,

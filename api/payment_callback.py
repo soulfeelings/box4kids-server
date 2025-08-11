@@ -2,6 +2,7 @@ from fastapi import APIRouter, Request, Depends
 from sqlalchemy.orm import Session
 from core.database import get_db
 from services.click_callback_service import ClickCallbackService
+from services.payme_callback_service import PaymeCallbackService
 import logging
 
 router = APIRouter(prefix="/payment/callback", tags=["Payment Callbacks"])
@@ -33,21 +34,19 @@ async def payme_callback(
 ):
     """Обработать Payme callback"""
     try:
+        body_bytes = await request.body()
         body = await request.json()
         signature = request.headers.get("x-paycom-signature", "")
-
-        # TODO: Реализовать PaymeCallbackService
-        logging.info(f"Payme callback received: {body}")
         
-        return {
-            "jsonrpc": "2.0",
-            "id": body.get("id"),
-            "result": {"allow": True}
-        }
+        service = PaymeCallbackService(db)
+        result = await service.handle_callback(signature, body_bytes, body)
+        return result
+        
     except Exception as e:
         logging.error(f"Payme callback error: {e}")
         return {
             "jsonrpc": "2.0",
+            "id": body.get("id", 0) if 'body' in locals() else 0,
             "error": {
                 "code": -32400,
                 "message": "System error"

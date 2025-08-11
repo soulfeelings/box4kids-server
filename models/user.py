@@ -10,6 +10,7 @@ if TYPE_CHECKING:
     from .delivery_info import DeliveryInfo
     from .payment import Payment
     from .click_payment import ClickCardToken
+    from .payme_payment import PaymeCardToken
 
 
 class UserRole(enum.Enum):
@@ -26,11 +27,9 @@ class User(Base):
     role: Mapped[UserRole] = mapped_column(Enum(UserRole), default=UserRole.USER)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=func.now())
     
-    # Payment system fields
-    payme_card_token: Mapped[str] = mapped_column(String(255), nullable=True)
-    
     # Relationships
     children: Mapped[List["Child"]] = relationship("Child", back_populates="parent")
     delivery_addresses: Mapped[List["DeliveryInfo"]] = relationship("DeliveryInfo", back_populates="user")
     payments: Mapped[List["Payment"]] = relationship("Payment", back_populates="user")
-    click_cards: Mapped[List["ClickCardToken"]] = relationship("ClickCardToken", back_populates="user") 
+    click_cards: Mapped[List["ClickCardToken"]] = relationship("ClickCardToken", back_populates="user")
+    payme_cards: Mapped[List["PaymeCardToken"]] = relationship("PaymeCardToken", back_populates="user") 

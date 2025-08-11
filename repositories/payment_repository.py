@@ -49,4 +49,16 @@ class PaymentRepository:
         """Получает платежи по статусу"""
         return self.db.query(Payment).filter(
             Payment.status == status
-        ).all() 
+        ).all()
+
+    def get_by_merchant_trans_id(self, merchant_trans_id: str) -> Optional[Payment]:
+        """Получает платеж по merchant_trans_id"""
+        return self.db.query(Payment).filter(
+            Payment.merchant_trans_id == merchant_trans_id
+        ).first()
+
+    def get_by_merchant_prepare_id(self, merchant_prepare_id: str) -> Optional[Payment]:
+        """Получает платеж по merchant_prepare_id"""
+        return self.db.query(Payment).filter(
+            Payment.merchant_prepare_id == merchant_prepare_id
+        ).first() 

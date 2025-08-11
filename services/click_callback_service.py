@@ -1,7 +1,7 @@
 from sqlalchemy.orm import Session
 from typing import Dict
-from models.click_payment import ClickPayment, ClickPaymentStatus
-from repositories.click_payment_repository import ClickPaymentRepository
+from models.payment import Payment, PaymentStatus
+from repositories.payment_repository import PaymentRepository
 from repositories.subscription_repository import SubscriptionRepository
 from services.toy_box_service import ToyBoxService
 from utils.click_signature import verify_click_signature
@@ -29,7 +29,7 @@ class ClickCallbackService:
 
     def __init__(self, db: Session):
         self.db = db
-        self.click_payment_repo = ClickPaymentRepository(db)
+        self.payment_repo = PaymentRepository(db)
         self.subscription_repo = SubscriptionRepository(db)
         self.toy_box_service = ToyBoxService(db)
 
@@ -89,70 +89,64 @@ class ClickCallbackService:
     async def _handle_prepare(self, params: ClickCallbackParams) -> Dict:
         """Обработать Prepare этап"""
         # Найти платеж по merchant_trans_id
-        payment = self.click_payment_repo.get_by_merchant_trans_id(params.merchant_trans_id)
+        payment = self.payment_repo.get_by_merchant_trans_id(params.merchant_trans_id)
         if not payment:
             return self._create_response(params, -5, "Payment not found")
 
-        # Проверить сумму
-        if payment.amount != params.amount:
+        # Проверить сумму (конвертируем в тийины для сравнения)
+        payment_amount_tiyin = int(payment.amount * 100)
+        if payment_amount_tiyin != params.amount:
             return self._create_response(params, -2, "Invalid amount")
 
         # Проверить что платеж еще не завершен
-        if payment.status == ClickPaymentStatus.COMPLETED:
+        if payment.status == PaymentStatus.COMPLETED:
             return self._create_response(params, -4, "Payment already completed")
 
         # Обновить данные платежа
         payment.merchant_prepare_id = params.merchant_trans_id
         payment.click_trans_id = params.click_trans_id
-        self.db.commit()
 
         return self._create_response(params, 0, "Success")
 
     async def _handle_complete(self, params: ClickCallbackParams) -> Dict:
         """Обработать Complete этап"""
         # Найти платеж по merchant_prepare_id
-        payment = self.click_payment_repo.get_by_merchant_prepare_id(params.merchant_prepare_id)
+        payment = self.payment_repo.get_by_merchant_prepare_id(params.merchant_prepare_id)
 
         if not payment:
             return self._create_response(params, -5, "Payment not found")
 
         # Проверить что платеж еще не завершен
-        if payment.status == ClickPaymentStatus.COMPLETED:
+        if payment.status == PaymentStatus.COMPLETED:
             return self._create_response(params, -4, "Payment already completed")
 
         # Обновить статус платежа
         if params.error == 0:
-            payment.status = ClickPaymentStatus.COMPLETED
+            payment.status = PaymentStatus.COMPLETED
             payment.error_code = 0
             payment.error_note = "Success"
 
             # Активировать подписки
             await self._activate_subscriptions(payment)
         else:
-            payment.status = ClickPaymentStatus.FAILED
+            payment.status = PaymentStatus.FAILED
             payment.error_code = params.error
             payment.error_note = params.error_note
 
         payment.click_trans_id = params.click_trans_id
-        self.db.commit()
 
         return self._create_response(params, 0, "Success")
 
-    async def _activate_subscriptions(self, payment: ClickPayment):
+    async def _activate_subscriptions(self, payment: Payment):
         """Активировать подписки после успешной оплаты"""
-        subscription_ids = json.loads(payment.subscription_ids)
+        # Получаем подписки, привязанные к этому платежу
+        subscriptions = self.subscription_repo.get_by_payment_id(payment.id)
 
-        for subscription_id in subscription_ids:
-            subscription = self.subscription_repo.get_by_id(subscription_id)
-            if subscription:
-                # Привязать платеж к подписке
-                subscription.click_payment_id = payment.id
-
-                # Создать ToyBox для подписки
-                try:
-                    toy_box = self.toy_box_service.create_box_for_subscription(subscription_id)
-                    logging.info(f"Created ToyBox {toy_box.id} for subscription {subscription_id}")
-                except Exception as e:
-                    logging.error(f"Failed to create ToyBox for subscription {subscription_id}: {e}")
-
-        self.db.commit()
+        for subscription in subscriptions:
+            # Создать ToyBox для подписки
+            try:
+                toy_box = self.toy_box_service.create_box_for_subscription(subscription.id)
+                logging.info(f"Created ToyBox {toy_box.id} for subscription {subscription.id}")
+            except Exception as e:
+                logging.error(f"Failed to create ToyBox for subscription {subscription.id}: {e}")
+                # В будущем здесь будет rollback логика

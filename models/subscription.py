@@ -21,8 +21,6 @@ class Subscription(Base):
     plan_id: Mapped[int] = mapped_column(Integer, ForeignKey("subscription_plans.id"), nullable=False)
     delivery_info_id: Mapped[int] = mapped_column(Integer, ForeignKey("delivery_info.id"), nullable=True)
     payment_id: Mapped[int] = mapped_column(Integer, ForeignKey("payments.id"), nullable=True)
-    click_payment_id: Mapped[int] = mapped_column(Integer, ForeignKey("click_payments.id"), nullable=True)
-    payme_receipt_id: Mapped[str] = mapped_column(String(255), nullable=True)
     discount_percent: Mapped[float] = mapped_column(Float, default=0.0)
     individual_price: Mapped[float] = mapped_column(Float, nullable=False)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)

@@ -3,7 +3,7 @@ from .child import Child, Gender
 from .subscription import Subscription, SubscriptionStatus
 from .delivery_info import DeliveryInfo
 from .payment import Payment, PaymentStatus
-from .click_payment import ClickPayment, ClickCardToken, ClickPaymentStatus
+from .click_payment import ClickCardToken
 from .interest import Interest, child_interests
 from .skill import Skill, child_skills
 from .toy_category import ToyCategory
@@ -17,7 +17,7 @@ __all__ = [
     "Subscription", "SubscriptionStatus",
     "DeliveryInfo", 
     "Payment", "PaymentStatus",
-    "ClickPayment", "ClickCardToken", "ClickPaymentStatus",
+    "ClickCardToken",
     "Interest", "Skill", 
     "child_interests", "child_skills",
     "ToyCategory",

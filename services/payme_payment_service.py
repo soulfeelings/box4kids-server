@@ -1,12 +1,15 @@
 from sqlalchemy.orm import Session
 from typing import List, Dict
-from models.payment import Payment, PaymentStatus
+from models.payment import Payment, PaymentStatus, PaymentType
 from models.user import User
+from models.payme_payment import PaymeCardToken
 from repositories.payment_repository import PaymentRepository
 from repositories.subscription_repository import SubscriptionRepository
+
 from services.payme_subscribe_service import PaymeSubscribeService
 from services.toy_box_service import ToyBoxService
 import logging
+import json
 
 
 class PaymePaymentService:
@@ -17,12 +20,13 @@ class PaymePaymentService:
         self.payme_subscribe = PaymeSubscribeService()
         self.payment_repo = PaymentRepository(db)
         self.subscription_repo = SubscriptionRepository(db)
+
         self.toy_box_service = ToyBoxService(db)
 
-    async def save_card_token(self, user_id: int, token: str) -> Dict:
-        """Сохранить токен карты в профиле пользователя"""
+    async def save_card_token(self, user_id: int, token: str, card_number: str, expire_date: str) -> Dict:
+        """Сохранить токен карты в отдельной таблице"""
         try:
-            # Обновить токен в профиле пользователя
+            # Проверить существование пользователя
             user = self.db.query(User).filter(User.id == user_id).first()
             if not user:
                 return {
@@ -30,10 +34,23 @@ class PaymePaymentService:
                     "error_message": "Пользователь не найден"
                 }
 
-            user.payme_card_token = token
-            self.db.commit()
+            # Создать новый токен карты
+            card_token = PaymeCardToken(
+                user_id=user_id,
+                card_token=token,
+                card_number=card_number,
+                expire_date=expire_date,
+                is_verified=True  # предполагаем что токен уже верифицирован
+            )
+            
+            self.db.add(card_token)
+            self.db.flush()  # Нужен ID для ответа
+            self.db.refresh(card_token)
 
-            return {"success": True}
+            return {
+                "success": True,
+                "token_id": card_token.id
+            }
 
         except Exception as e:
             logging.error(f"Error saving card token: {e}")
@@ -45,12 +62,24 @@ class PaymePaymentService:
     async def charge_subscription(self, user_id: int, subscription_ids: List[int], description: str = "") -> Dict:
         """Списать деньги за подписки по сохраненному токену"""
         try:
-            # Получить пользователя и его токен
+            # Получить пользователя и его активный токен
             user = self.db.query(User).filter(User.id == user_id).first()
-            if not user or not user.payme_card_token:
+            if not user:
                 return {
                     "success": False,
-                    "error_message": "Токен карты не найден"
+                    "error_message": "Пользователь не найден"
+                }
+
+            # Получить активный токен карты пользователя
+            card_token = self.db.query(PaymeCardToken).filter(
+                PaymeCardToken.user_id == user_id,
+                PaymeCardToken.is_deleted == False,
+                PaymeCardToken.is_verified == True
+            ).order_by(PaymeCardToken.created_at.desc()).first()
+            if not card_token:
+                return {
+                    "success": False,
+                    "error_message": "Активный токен карты не найден"
                 }
 
             # Получить подписки и рассчитать сумму
@@ -86,23 +115,24 @@ class PaymePaymentService:
             receipt_id = receipt_result["receipt"]["_id"]
 
             # Списать деньги
-            pay_result = await self.payme_subscribe.pay_receipt(receipt_id, user.payme_card_token)
+            pay_result = await self.payme_subscribe.pay_receipt(receipt_id, card_token.card_token)
 
-            # Создать запись платежа в БД
+            # Создать универсальную запись платежа
             payment = Payment(
                 user_id=user_id,
                 amount=total_amount / 100,  # обратно в сумы
                 currency="UZS",
                 status=PaymentStatus.COMPLETED,
+                payment_type=PaymentType.PAYME,
                 external_payment_id=receipt_id,
-                payme_receipt_id=receipt_id
+                payme_receipt_id=receipt_id,
+                payme_card_token_id=card_token.id
             )
             payment = self.payment_repo.create(payment)
 
-            # Привязать платеж к подпискам и активировать их
+            # Привязать платеж к подпискам
             for subscription in subscriptions:
                 subscription.payment_id = payment.id
-                subscription.payme_receipt_id = receipt_id
 
                 # Создать ToyBox
                 try:
@@ -110,8 +140,6 @@ class PaymePaymentService:
                     logging.info(f"Created ToyBox {toy_box.id} for subscription {subscription.id}")
                 except Exception as e:
                     logging.error(f"Failed to create ToyBox for subscription {subscription.id}: {e}")
-
-            self.db.commit()
 
             return {
                 "success": True,
