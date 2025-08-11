@@ -1,16 +1,14 @@
 from sqlalchemy.orm import Session
-from typing import Dict, Any, Optional
+from typing import Dict, Optional
 from models.payment import Payment, PaymentStatus
 from repositories.payment_repository import PaymentRepository
 from repositories.subscription_repository import SubscriptionRepository
 from services.toy_box_service import ToyBoxService
 from utils.payme_signature import verify_payme_signature
-from utils.currency import validate_amount_match, is_valid_payment_amount, sums_to_tiyin
+from utils.currency import validate_amount_match, is_valid_payment_amount, sums_to_tiyin, tiyin_to_sums
 from core.config import settings
 import json
 import logging
-import hashlib
-import hmac
 
 
 class PaymeCallbackParams:
@@ -44,36 +42,7 @@ class PaymeCallbackService:
         self.subscription_repo = SubscriptionRepository(db)
         self.toy_box_service = ToyBoxService(db)
 
-    def _verify_signature(self, signature: str, body: bytes) -> bool:
-        """Проверить подпись Payme callback"""
-        # В development режиме пропускаем проверку для удобства тестирования
-        if settings.ENVIRONMENT == "development":
-            logging.info("Skipping Payme signature verification in development mode")
-            return True
-        
-        # В production всегда проверяем подпись
-        if not settings.PAYME_SECRET_KEY:
-            logging.error("PAYME_SECRET_KEY not configured for production")
-            return False
 
-        try:
-            # Вычисляем HMAC-SHA256 от тела запроса
-            calculated = hmac.new(
-                settings.PAYME_SECRET_KEY.encode(),
-                body,
-                hashlib.sha256
-            ).hexdigest()
-            
-            is_valid = calculated == signature
-            
-            if not is_valid:
-                logging.warning("Invalid Payme signature received")
-            
-            return is_valid
-            
-        except Exception as e:
-            logging.error(f"Error verifying Payme signature: {e}")
-            return False
 
     def _create_error_response(self, request_id: int, error_code: int, message: str) -> Dict:
         """Создать ответ с ошибкой для Payme"""
@@ -98,7 +67,7 @@ class PaymeCallbackService:
         """Обработать Payme callback"""
         
         # Проверить подпись
-        if not self._verify_signature(signature, body):
+        if not verify_payme_signature(signature, body):
             logging.error("Invalid Payme signature")
             return self._create_error_response(
                 callback_data.get("id", 0),
@@ -233,7 +202,7 @@ class PaymeCallbackService:
         
         payment = Payment(
             user_id=user_id,
-            amount=params.amount / 100,  # конвертируем из тийинов в сумы
+            amount=tiyin_to_sums(params.amount),
             currency="UZS",
             status=PaymentStatus.PENDING,
             payment_type="payme",

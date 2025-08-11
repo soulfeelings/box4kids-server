@@ -8,6 +8,7 @@ from repositories.subscription_repository import SubscriptionRepository
 
 from services.payme_subscribe_service import PaymeSubscribeService
 from services.toy_box_service import ToyBoxService
+from utils.currency import sums_to_tiyin, tiyin_to_sums
 import logging
 
 
@@ -89,7 +90,7 @@ class PaymePaymentService:
                     "error_message": "Подписки не найдены"
                 }
 
-            total_amount = sum(int(sub.individual_price * 100) for sub in subscriptions)  # в тийинах
+            total_amount = sum(sums_to_tiyin(sub.individual_price) for sub in subscriptions)
 
             # Создать чек
             receipt_result = await self.payme_subscribe.create_receipt(
@@ -119,7 +120,7 @@ class PaymePaymentService:
             # Создать универсальную запись платежа
             payment = Payment(
                 user_id=user_id,
-                amount=total_amount / 100,  # обратно в сумы
+                amount=tiyin_to_sums(total_amount),
                 currency="UZS",
                 status=PaymentStatus.COMPLETED,
                 payment_type=PaymentType.PAYME,
