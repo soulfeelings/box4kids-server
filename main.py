@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from api import auth, admin,users, subscriptions, payments, children, interests, skills, toy_categories, subscription_plans, delivery_addresses, toy_boxes
 from api.delivery_dates import router as delivery_dates_router
+from api.delivery_times import router as delivery_times_router
 from core.database import Base, engine, get_db
 from core.config import settings
 from core.data_initialization import initialize_all_data
@@ -85,6 +86,7 @@ app.include_router(subscription_plans.router)
 app.include_router(delivery_addresses.router)
 app.include_router(toy_boxes.router)
 app.include_router(delivery_dates_router)
+app.include_router(delivery_times_router)
 
 @app.middleware("http")
 async def language_middleware(request: Request, call_next):

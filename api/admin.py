@@ -4,6 +4,7 @@ from api.admin_routes.users import router as users_router
 from api.admin_routes.inventory import router as inventory_router
 from api.admin_routes.mappings import router as mappings_router
 from api.admin_routes.delivery_dates import router as delivery_dates_router
+from api.admin_routes.delivery_times import router as delivery_times_router
 
 # Создаем главный роутер для админки
 router = APIRouter()
@@ -14,4 +15,5 @@ router.include_router(users_router)
 router.include_router(inventory_router)
 router.include_router(mappings_router)
 router.include_router(delivery_dates_router)
+router.include_router(delivery_times_router)
 
