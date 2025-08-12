@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Tuple
 from sqlalchemy.orm import Session
 from repositories.allowed_delivery_time_repository import AllowedDeliveryTimeRepository
 

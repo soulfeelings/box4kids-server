@@ -1,7 +1,5 @@
 
-import random
 from sqlalchemy.orm.session import Session
-from core.config import settings
 from repositories.inventory_repository import InventoryRepository
 import logging
 

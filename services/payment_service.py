@@ -26,8 +26,8 @@ class PaymentService:
         gateway_response = self.gateway.create_payment(
             amount=amount,
             currency=currency,
-            return_url=f"https://oursite.com/payment/return",
-            notification_url=f"https://oursite.com/payment/webhook"
+            return_url="https://oursite.com/payment/return",
+            notification_url="https://oursite.com/payment/webhook"
         )
         
         # Сохраняем платеж в нашей БД
@@ -110,9 +110,9 @@ class PaymentService:
             if abs(existing_payment.amount - current_total) < 0.01:  # Учитываем погрешность float
                 payment_id = existing_payment.id
                 amount = existing_payment.amount
-                print(f"✅ Сумма платежа соответствует текущим ценам")
+                print("✅ Сумма платежа соответствует текущим ценам")
             else:
-                print(f"⚠️ Сумма платежа не соответствует текущим ценам, создаем новый")
+                print("⚠️ Сумма платежа не соответствует текущим ценам, создаем новый")
                 # Отвязываем подписки от старого платежа
                 self._unlink_subscriptions_from_payment(subscription_ids)
                 # Создаем новый пакетный платеж

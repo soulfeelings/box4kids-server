@@ -5,7 +5,6 @@ from core.security import get_current_user
 from services.payment_service import PaymentService
 from schemas.auth_schemas import UserFromToken
 from schemas.payment_schemas import (
-    PaymentResult,
     BatchPaymentCreateRequest,
     BatchPaymentResponse,
     ProcessPaymentResponse,
@@ -14,7 +13,6 @@ from schemas.payment_schemas import (
     ProcessSubscriptionsRequest,
     ProcessSubscriptionsResponse,
 )
-from typing import List
 from core.i18n import translate
 
 router = APIRouter(prefix="/payments", tags=["Payments"])
@@ -69,7 +67,7 @@ async def process_payment(
             return ProcessPaymentResponse(status="success", message=translate('payment_success', lang))
         else:
             return ProcessPaymentResponse(status="failed", message=translate('payment_failed', lang))
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail=translate('payment_processing_error', lang))
 
 
@@ -113,7 +111,7 @@ async def payment_return(
         )
         
         return result
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail=translate('payment_return_error', lang))
 
 
@@ -132,5 +130,5 @@ async def payment_webhook(
         )
         
         return {"status": "ok" if success else "error"}
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail=translate('webhook_processing_error', lang)) 

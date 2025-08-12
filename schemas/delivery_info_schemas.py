@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field
 from typing import List, Optional
 from datetime import datetime, date as date_type
 

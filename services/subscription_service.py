@@ -44,7 +44,7 @@ class SubscriptionService:
         # Проверяем что у ребенка нет активной (оплаченной) подписки
         active_subscription = self.subscription_repo.get_active_by_child_id(child.id)
         if active_subscription:
-            raise ValueError(f"У ребенка уже есть активная подписка. Отмените текущую или дождитесь её истечения.")
+            raise ValueError("У ребенка уже есть активная подписка. Отмените текущую или дождитесь её истечения.")
 
         # Проверяем есть ли неоплаченная подписка
         pending_subscription = self.subscription_repo.get_pending_payment_by_child_id(child.id)
@@ -244,7 +244,7 @@ class SubscriptionService:
         """Отменяет активную подписку ребенка (через отмену платежа)"""
         active_subscription = self.subscription_repo.get_active_by_child_id(child_id)
         if not active_subscription:
-            raise ValueError(f"У ребенка нет активной подписки для отмены")
+            raise ValueError("У ребенка нет активной подписки для отмены")
         
         user_id = active_subscription.user.id
         

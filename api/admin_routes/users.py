@@ -1,5 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.orm import Session
+from fastapi import APIRouter, Depends, HTTPException
 from core.database import get_db
 from core.security import get_current_admin
 from services.user_service import UserService
