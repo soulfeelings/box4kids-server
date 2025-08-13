@@ -9,7 +9,7 @@ from services.toy_box_service import ToyBoxService
 from models.user import UserRole
 from typing import List
 from schemas.admin_schemas import AdminUserResponse, ChildWithBoxesResponse
-from schemas.toy_box_schemas import ToyBoxResponse, NextBoxResponse, ToyBoxItemResponse, NextBoxItemResponse
+from schemas.toy_box_schemas import ToyBoxResponse, NextBoxResponse, ToyBoxItemResponse, NextBoxItemResponse, UpdateToyBoxStatusRequest
 
 router = APIRouter(prefix="/admin", tags=["Admin Users"])
 
@@ -171,7 +171,7 @@ async def change_user_role(
 @router.put("/toy-boxes/{box_id}/status")
 async def update_toy_box_status(
     box_id: int,
-    new_status: str,
+    payload: UpdateToyBoxStatusRequest,
     current_admin: dict = Depends(get_current_admin),
     toy_box_service: ToyBoxService = Depends(lambda db=Depends(get_db): ToyBoxService(db))
 ):
@@ -179,7 +179,7 @@ async def update_toy_box_status(
     from models.toy_box import ToyBoxStatus
     
     try:
-        status = ToyBoxStatus(new_status)
+        status = ToyBoxStatus(payload.new_status)
     except ValueError:
         raise HTTPException(status_code=400, detail="Неверный статус")
     
@@ -188,3 +188,14 @@ async def update_toy_box_status(
         raise HTTPException(status_code=404, detail="Набор не найден")
     
     return {"message": "Статус набора обновлен"} 
+
+
+@router.get("/users/{user_id}/toy-boxes", response_model=list[ToyBoxResponse])
+async def get_user_toy_boxes(
+    user_id: int,
+    current_admin: dict = Depends(get_current_admin),
+    toy_box_service: ToyBoxService = Depends(lambda db=Depends(get_db): ToyBoxService(db))
+):
+    """Получить все наборы пользователя (по всем детям) для админки"""
+    boxes = toy_box_service.get_box_history_by_user(user_id, limit=1000)
+    return boxes

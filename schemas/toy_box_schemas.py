@@ -83,3 +83,8 @@ class ToyBoxListResponse(BaseModel):
 class ToyBoxReviewsResponse(BaseModel):
     """Список отзывов на набор"""
     reviews: List[ToyBoxReviewResponse] 
+
+
+class UpdateToyBoxStatusRequest(BaseModel):
+    """Тело запроса для обновления статуса набора (админ)"""
+    new_status: str
