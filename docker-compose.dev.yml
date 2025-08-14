@@ -48,8 +48,28 @@ services:
     environment:
       DATABASE_URL: postgresql://postgres:password@postgres:5432/box4kids
       REDIS_URL: redis://redis:6379
+      ENVIRONMENT: development
       DEBUG: "true"
       SECRET_KEY: "dev-secret-key-change-in-production"
+      
+      # Click Payment System (dev)
+      CLICK_MERCHANT_ID: "dev_click_merchant"
+      CLICK_SECRET_KEY: "dev_click_secret"
+      CLICK_SERVICE_ID: "dev_click_service"
+      CLICK_MERCHANT_USER_ID: "dev_click_user"
+      
+      # Payme Payment System (dev)
+      PAYME_MERCHANT_ID: "dev_payme_merchant"
+      PAYME_SECRET_KEY: "dev_payme_secret"
+      PAYME_SUBSCRIBE_API_URL: "https://checkout.paycom.uz/api"
+      PAYME_MERCHANT_API_URL: "https://merchant.paycom.uz/api"
+      PAYME_TEST_MODE: "true"
+      
+      # SMS Gateway (dev)
+      SMS_LOGIN: ""
+      SMS_PASSWORD: ""
+      SMS_NICKNAME: ""
+      SMS_ENABLED: "false"
     depends_on:
       postgres:
         condition: service_healthy

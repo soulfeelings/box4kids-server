@@ -9,6 +9,8 @@ if TYPE_CHECKING:
     from .child import Child
     from .delivery_info import DeliveryInfo
     from .payment import Payment
+    from .click_payment import ClickCardToken
+    from .payme_payment import PaymeCardToken
 
 
 class UserRole(enum.Enum):
@@ -28,4 +30,6 @@ class User(Base):
     # Relationships
     children: Mapped[List["Child"]] = relationship("Child", back_populates="parent")
     delivery_addresses: Mapped[List["DeliveryInfo"]] = relationship("DeliveryInfo", back_populates="user")
-    payments: Mapped[List["Payment"]] = relationship("Payment", back_populates="user") 
+    payments: Mapped[List["Payment"]] = relationship("Payment", back_populates="user")
+    click_cards: Mapped[List["ClickCardToken"]] = relationship("ClickCardToken", back_populates="user")
+    payme_cards: Mapped[List["PaymeCardToken"]] = relationship("PaymeCardToken", back_populates="user") 

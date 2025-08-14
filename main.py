@@ -78,6 +78,11 @@ app.include_router(subscriptions.router)
 app.include_router(payments.router)
 app.include_router(admin.router)
 
+# Платежные системы
+app.include_router(click_payment.router)
+app.include_router(payme_payment.router)
+app.include_router(payment_callback.router)
+
 app.include_router(children.router)
 app.include_router(interests.router)
 app.include_router(skills.router)
