@@ -1,4 +1,3 @@
-from typing import Dict, Optional
 import random
 import time
 import logging

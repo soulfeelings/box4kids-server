@@ -47,4 +47,16 @@ class SkillRepository:
         for skill in skills:
             self._db.refresh(skill)
         
-        return skills 
+        return skills
+    
+    def delete(self, skill_id: int) -> bool:
+        """Удалить навык по ID"""
+        skill = self.get_by_id(skill_id)
+        if skill:
+            self._db.delete(skill)
+            return True
+        return False
+    
+    def delete_all(self) -> None:
+        """Удалить все навыки"""
+        self._db.query(Skill).delete() 

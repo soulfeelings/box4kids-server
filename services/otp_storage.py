@@ -1,6 +1,5 @@
 from typing import Dict, Optional
 import time
-import json
 from core.interfaces import IOTPStorage
 from core.config import settings
 
