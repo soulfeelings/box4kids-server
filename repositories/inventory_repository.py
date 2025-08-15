@@ -63,4 +63,16 @@ class InventoryRepository:
             self._db.refresh(inventory)
         
         logger.info(f"Создано {len(inventories)} элементов склада")
-        return inventories 
+        return inventories
+    
+    def update(self, inventory: Inventory) -> bool:
+        """Обновить элемент склада"""
+        try:
+            self._db.add(inventory)
+            self._db.flush()
+            self._db.refresh(inventory)
+            logger.info(f"Обновлен элемент склада для категории {inventory.category_id}")
+            return True
+        except Exception as e:
+            logger.error(f"Ошибка при обновлении элемента склада: {e}")
+            return False 
