@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from api import auth, admin,users, subscriptions, payments, children, interests, skills, toy_categories, subscription_plans, delivery_addresses, toy_boxes
+from api import auth, admin,users, subscriptions, payments, children, interests, skills, toy_categories, subscription_plans, delivery_addresses, toy_boxes, click_payment, payme_payment, payment_callback
 from api.delivery_dates import router as delivery_dates_router
 from api.delivery_times import router as delivery_times_router
 from core.database import Base, engine, get_db
@@ -55,6 +55,10 @@ app = FastAPI(
 origins = [
     "http://localhost",
     "http://localhost:3000",  # для React/Vite
+    "http://localhost:5173",  # Vite default port
+    "http://127.0.0.1",
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1:5173",
     "https://your-frontend-domain.com",
     "http://13.51.85.137:3000",
     "http://13.51.85.137",
@@ -63,13 +67,23 @@ origins = [
 ]
 
 # Настройка CORS
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+if settings.DEBUG:
+    # Разрешаем любые локальные Origins в режиме разработки
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origin_regex=r"https?://(localhost|127\.0\.0\.1)(:\d+)?$",
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+else:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=origins,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
 # Подключаем роутеры
 app.include_router(auth.router)

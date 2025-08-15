@@ -13,6 +13,9 @@ from typing import List, Optional, Dict, Any
 from datetime import timedelta, date
 from services.inventory_service import InventoryService
 from services.category_mapping_service import CategoryMappingService
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class ToyBoxService:
@@ -60,6 +63,10 @@ class ToyBoxService:
 
         # Генерируем состав набора на основе интересов и навыков
         items_data = self._generate_box_items(child, subscription.plan_id)
+        
+        # Резервируем товары со склада
+        if not self.inventory_service.reserve_inventory(items_data):
+            raise ValueError("Не удалось зарезервировать товары со склада")
         
         # Создаем теги на основе интересов и навыков ребенка
         interest_tags = self._generate_interest_tags(child)
@@ -317,8 +324,39 @@ class ToyBoxService:
         return all_boxes[:limit]
 
     def update_box_status(self, box_id: int, status: ToyBoxStatus) -> Optional[ToyBox]:
-        """Обновить статус набора"""
-        return self.box_repo.update_status(box_id, status)
+        """Обновить статус набора с правильной обработкой зарезервированных товаров"""
+        box = self.box_repo.get_by_id(box_id)
+        if not box:
+            return None
+
+        old_status = box.status
+        new_status = status
+
+        # Обновляем статус
+        updated_box = self.box_repo.update_status(box_id, status)
+        
+        # Логируем изменение статуса
+        logger.info(f"Набор {box_id}: статус изменен с {old_status.value} на {new_status.value}")
+        
+        # Если статус меняется на "возвращен", возвращаем товары на склад
+        if status == ToyBoxStatus.RETURNED:
+            # Получаем состав набора
+            items_data = []
+            for item in box.items:
+                items_data.append({
+                    "toy_category_id": item.toy_category_id,
+                    "quantity": item.quantity
+                })
+            
+            # Возвращаем товары на склад
+            if not self.inventory_service.return_inventory(items_data):
+                logger.error(f"Не удалось вернуть товары на склад для набора {box_id}")
+                # Можно решить, нужно ли прерывать операцию или продолжить
+        
+        # Примечание: зарезервированные товары автоматически пересчитываются
+        # в методе get_all() InventoryService на основе статуса PLANNED
+        
+        return updated_box
 
     def sync_active_boxes_with_delivery_date(self, delivery_info_id: int, user_id: int, new_date: date) -> List[ToyBox]:
         """Синхронизировать активные наборы с обновленной датой доставки"""

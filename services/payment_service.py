@@ -2,7 +2,7 @@ from sqlalchemy.orm import Session
 from repositories.payment_repository import PaymentRepository
 from repositories.subscription_repository import SubscriptionRepository
 from services.mock_payment_gateway import MockPaymentGateway
-from models.payment import Payment, PaymentStatus
+from models.payment import Payment, PaymentStatus, PaymentType
 from typing import List, Optional, Dict
 from models.subscription import Subscription
 from schemas.payment_schemas import PaymentResult, PaymentStatusEnum
@@ -36,6 +36,7 @@ class PaymentService:
             amount=amount,
             currency=currency,
             status=PaymentStatus.PENDING,
+            payment_type=PaymentType.PAYME,
             external_payment_id=gateway_response["id"]
         )
         
