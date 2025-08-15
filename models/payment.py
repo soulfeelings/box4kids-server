@@ -52,4 +52,4 @@ class Payment(Base):
     user = relationship("User", back_populates="payments")
     subscriptions = relationship("Subscription", back_populates="payment")
     click_card_token = relationship("ClickCardToken")
-    payme_card_token = relationship("PaymeCardToken") 
+    payme_card_token = relationship("PaymeCardToken")

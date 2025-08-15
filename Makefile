@@ -1,5 +1,8 @@
 .PHONY: menu dev-up dev-reset dev-build dev-deploy dev-stop db-up prod-up prod-stop migrate
 
+# Ensure bash is used for interactive menu/read
+SHELL := /bin/bash
+
 # Docker commands
 COMPOSE_CMD = docker compose
 
@@ -38,10 +41,10 @@ dev-reset:
 	docker volume prune -f --filter label=com.docker.compose.project=server
 
 dev-build:
-	$(COMPOSE_CMD) -f docker-compose.dev.yml build --no-cache
+	$(COMPOSE_CMD) -f docker-compose.dev.yml build --no-cache --pull
 
 dev-deploy:
-	$(COMPOSE_CMD) -f docker-compose.dev.yml up -d --force-recreate
+	$(COMPOSE_CMD) -f docker-compose.dev.yml up -d --force-recreate --remove-orphans
 
 dev-stop:
 	$(COMPOSE_CMD) -f docker-compose.dev.yml down
@@ -52,10 +55,18 @@ db-up:
 
 # Production commands
 prod-up:
-	$(COMPOSE_CMD) -f docker-compose.prod.yml up -d
+	@if [ -f docker-compose.prod.yml ]; then \
+		$(COMPOSE_CMD) -f docker-compose.prod.yml up -d; \
+	else \
+		echo "docker-compose.prod.yml not found. Create it or use: make dev-up"; \
+	fi
 
 prod-stop:
-	$(COMPOSE_CMD) -f docker-compose.prod.yml down
+	@if [ -f docker-compose.prod.yml ]; then \
+		$(COMPOSE_CMD) -f docker-compose.prod.yml down; \
+	else \
+		echo "docker-compose.prod.yml not found. Nothing to stop."; \
+	fi
 
 # Database migrations
 migrate:

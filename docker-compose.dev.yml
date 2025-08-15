@@ -1,7 +1,7 @@
 name: server
 services:
   postgres:
-    image: postgres:15
+    image: mirror.gcr.io/library/postgres:15
     environment:
       POSTGRES_DB: box4kids
       POSTGRES_USER: postgres
@@ -23,7 +23,7 @@ services:
           memory: 40M
 
   redis:
-    image: redis:7-alpine
+    image: mirror.gcr.io/library/redis:7-alpine
     ports:
       - "6379:6379"
     volumes:
