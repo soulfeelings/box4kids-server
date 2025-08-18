@@ -74,24 +74,24 @@ jobs:
       - name: 💣 Reset environment (optional)
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.resetDevEnvironment == 'true' }}
         run: |
-          docker compose down -v --remove-orphans --filter name=${{ env.COMPOSE_PROJECT_NAME }} || true
-          docker image prune -f --filter name=${{ env.COMPOSE_PROJECT_NAME }} || true
-          docker builder prune -f --filter name=${{ env.COMPOSE_PROJECT_NAME }} || true
-          docker volume ls --filter name=${{ env.COMPOSE_PROJECT_NAME }} -q | xargs -r docker volume rm
+          docker compose -f docker-compose.dev.yml down -v --remove-orphans --filter name=${{ env.COMPOSE_PROJECT_NAME }} || true
+          docker image prune -f --filter label=com.docker.compose.project=${{ env.COMPOSE_PROJECT_NAME }} || true
+          docker builder prune -f --filter label=com.docker.compose.project=${{ env.COMPOSE_PROJECT_NAME }} || true
+          docker volume ls --filter label=com.docker.compose.project=${{ env.COMPOSE_PROJECT_NAME }} -q | xargs -r docker volume rm
 
       - name: ⬇️ Pull base images (optional)
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.pullBaseImages == 'true' }}
         run: |
-          docker compose pull postgres redis
+          docker compose -f docker-compose.dev.yml pull postgres redis
 
       - name: 🏗️ (Optional) Build API image
         if: ${{ (github.event_name == 'workflow_dispatch' && inputs.buildImage == 'true') || github.event_name == 'push' }}
         run: |
-          docker compose build api
+          docker compose -f docker-compose.dev.yml build api
 
       - name: 🐘 Start Postgres & Redis
         run: |
-          docker compose up -d postgres redis
+          docker compose -f docker-compose.dev.yml up -d postgres redis
 
       - name: ⏳ Wait for Postgres healthy
         run: |
@@ -102,17 +102,17 @@ jobs:
             [ "$STATUS" = "healthy" ] && exit 0
             sleep 2
           done
-          docker compose logs postgres --tail=200
+          docker compose -f docker-compose.dev.yml logs postgres --tail=200
           exit 1
 
       - name: 🧱 Run Alembic migrations
         if: ${{ (github.event_name == 'workflow_dispatch' && inputs.runMigrations == 'true') || github.event_name == 'push' }}
         run: |
-          docker compose run --rm migrate
+          docker compose -f docker-compose.dev.yml run --rm migrate
 
       - name: 🚀 Start API
         run: |
-          docker compose up -d api
+          docker compose -f docker-compose.dev.yml up -d api
 
       - name: ❤️ API healthcheck
         run: |
@@ -120,5 +120,5 @@ jobs:
             curl -fsS http://127.0.0.1:8000/health >/dev/null && exit 0
             echo "waiting API... ($i)"; sleep 2
           done
-          docker compose logs api --tail=200
+          docker compose -f docker-compose.dev.yml logs api --tail=200
           exit 1
