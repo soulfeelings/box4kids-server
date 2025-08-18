@@ -81,10 +81,15 @@ jobs:
       - name: 💣 Reset environment (optional)
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.resetDevEnvironment == 'true' }}
         run: |
-          docker compose -f docker-compose.dev.yml down -v --remove-orphans --filter name=${{ env.COMPOSE_PROJECT_NAME }} || true
-          docker image prune -f --filter label=com.docker.compose.project=${{ env.COMPOSE_PROJECT_NAME }} || true
-          docker builder prune -f --filter label=com.docker.compose.project=${{ env.COMPOSE_PROJECT_NAME }} || true
-          docker volume ls --filter label=com.docker.compose.project=${{ env.COMPOSE_PROJECT_NAME }} -q | xargs -r docker volume rm
+          echo "🛑 Останавливаю и удаляю сервисы..."
+          docker compose -f docker-compose.dev.yml down -v --remove-orphans || true
+
+          echo "🧹 Чищу dangling images и builder cache..."
+          docker image prune -af || true
+          docker builder prune -af || true
+
+          echo "🧹 Удаляю volumes проекта ${{ env.COMPOSE_PROJECT_NAME }}..."
+          docker volume ls --filter name=${{ env.COMPOSE_PROJECT_NAME }} -q | xargs -r docker volume rm || true
 
       - name: ⬇️ Pull base images (optional)
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.pullBaseImages == 'true' }}
