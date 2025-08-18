@@ -89,13 +89,14 @@ jobs:
         run: |
           docker build -t box4kids-server-api:dev -f Dockerfile .
 
-      - name: 🐘 Start Postgres & Redis
+      - name: 🐘 Ensure Postgres & Redis (no recreate)
         run: |
-          docker compose -f docker-compose.dev.yml up -d postgres redis
+          # Создаст, если отсутствуют; если уже запущены — не тронет
+          docker compose -f docker-compose.dev.yml up -d --no-recreate postgres redis
 
       - name: ⏳ Wait for Postgres healthy
         run: |
-          CID="$(docker compose ps -q postgres)"
+          CID="$(docker compose -f docker-compose.dev.yml ps -q postgres)"
           for i in {1..60}; do
             STATUS="$(docker inspect -f '{{.State.Health.Status}}' "$CID" 2>/dev/null || echo starting)"
             echo "Postgres health: $STATUS"
@@ -112,7 +113,7 @@ jobs:
 
       - name: 🚀 Start API
         run: |
-          docker compose -f docker-compose.dev.yml up -d api
+          docker compose -f docker-compose.dev.yml up -d --no-deps --force-recreate api
 
       - name: ❤️ API healthcheck
         run: |
