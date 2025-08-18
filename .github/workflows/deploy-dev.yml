@@ -87,7 +87,7 @@ jobs:
       - name: 🏗️ (Optional) Build API image
         if: ${{ (github.event_name == 'workflow_dispatch' && inputs.buildImage == 'true') || github.event_name == 'push' }}
         run: |
-          docker compose -f docker-compose.dev.yml build api
+          docker build -t box4kids-server-api:dev -f Dockerfile .
 
       - name: 🐘 Start Postgres & Redis
         run: |
