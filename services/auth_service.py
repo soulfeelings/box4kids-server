@@ -1,8 +1,12 @@
+import logging
 from sqlalchemy.orm import Session
 from models.user import User
 from .otp_service import OTPService
 from .jwt_service import get_jwt_service
+from core.config import settings
 from typing import Optional, Dict
+
+logger = logging.getLogger(__name__)
 
 
 class AuthService:
@@ -10,19 +14,29 @@ class AuthService:
         self.db = db
         self.otp_service = otp_service
     
-    def verify_phone(self, phone: str) -> bool:
+    async def verify_phone(self, phone: str) -> bool:
         """Отправляет OTP код на телефон"""
-        return self.otp_service.send_code(phone)
+        return await self.otp_service.send_code(phone)
 
     def dev_get_code(self, phone: str) -> str | None:
         """DEV метод чтобы получить код для тестирования"""
+        # Блокируем в production
+        if not settings.DEBUG:
+            logger.warning(f"Попытка использовать dev_get_code в production для {phone}")
+            return None
+            
         code_data = self.otp_service.storage.get_code_data(phone)
         if code_data:
             return code_data["code"]
         return None
     
     def dev_verify_code(self, phone: str, code: str) -> bool:
-        """Проверяет OTP код"""
+        """Проверяет OTP код (только для dev)"""
+        # Блокируем в production
+        if not settings.DEBUG:
+            logger.warning(f"Попытка использовать dev_verify_code в production для {phone}")
+            return False
+            
         return self.otp_service.verify_code(phone, code)
     
     def verify_otp_and_create_user(self, phone: str, code: str) -> Optional[User]:
@@ -46,7 +60,7 @@ class AuthService:
         print(f"AuthService: Создан новый пользователь {phone}")
         return new_user
     
-    def initiate_phone_change(self, user_id: int, current_phone: str, current_code: str, new_phone: str) -> bool:
+    async def initiate_phone_change(self, user_id: int, current_phone: str, current_code: str, new_phone: str) -> bool:
         """Инициация смены номера телефона - проверяет текущий номер и отправляет OTP на новый"""
         # Получаем пользователя
         user = self.db.query(User).filter(User.id == user_id).first()
@@ -71,7 +85,7 @@ class AuthService:
             return False
         
         # Отправляем OTP на новый номер
-        success = self.otp_service.send_code(new_phone)
+        success = await self.otp_service.send_code(new_phone)
         if success:
             print(f"AuthService: OTP отправлен на новый номер {new_phone} для пользователя {user_id}")
         else:

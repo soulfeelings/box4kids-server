@@ -1,12 +1,16 @@
-name: 🚀 Deploy to Dev
+name: 🚀 Deploy Box4Kids Server (dev)
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 on:
   workflow_dispatch:
     inputs:
       buildImage:
-        description: "Build Docker image?"
+        description: "Build API image from Dockerfile?"
         required: true
-        default: "false"
+        default: "true"
         type: choice
         options: ["true", "false"]
       resetDevEnvironment:
@@ -15,38 +19,119 @@ on:
         default: "false"
         type: choice
         options: ["true", "false"]
+      runMigrations:
+        description: "Run Alembic migrations?"
+        required: true
+        default: "true"
+        type: choice
+        options: ["true", "false"]
+      pullBaseImages:
+        description: "Pull base images (postgres/redis) from registry?"
+        required: true
+        default: "false"
+        type: choice
+        options: ["true", "false"]
+  push:
+    branches: ["dev"]
+
+env:
+  COMPOSE_PROJECT_NAME: box4kids-server
 
 jobs:
   deploy:
     runs-on: [self-hosted, backend]
+    environment: development
 
     steps:
       - name: ✅ Checkout repo
         uses: actions/checkout@v4
 
+      - name: 📦 Create .env
+        run: |
+          cat > .env << 'EOF'
+          ENVIRONMENT=production
+          DEBUG=true
+
+          POSTGRES_DB=${{ vars.POSTGRES_DB }}
+          POSTGRES_USER=${{ vars.POSTGRES_USER }}
+          POSTGRES_PASSWORD=${{ vars.POSTGRES_PASSWORD }}
+          DATABASE_URL=${{ vars.DATABASE_URL }}
+
+          REDIS_URL=${{ vars.REDIS_URL }}
+
+          SECRET_KEY=${{ vars.SECRET_KEY }}
+
+          CLICK_MERCHANT_ID=${{ vars.CLICK_MERCHANT_ID }}
+          CLICK_SECRET_KEY=${{ vars.CLICK_SECRET_KEY }}
+          CLICK_SERVICE_ID=${{ vars.CLICK_SERVICE_ID }}
+          CLICK_MERCHANT_USER_ID=${{ vars.CLICK_MERCHANT_USER_ID }}
+
+          PAYME_TEST_MODE=true
+          PAYME_MERCHANT_ID=${{ vars.PAYME_MERCHANT_ID }}
+          PAYME_SECRET_KEY=${{ vars.PAYME_SECRET_KEY }}
+          PAYME_SUBSCRIBE_API_URL=${{ vars.PAYME_SUBSCRIBE_API_URL }}
+          PAYME_MERCHANT_API_URL=${{ vars.PAYME_MERCHANT_API_URL }}
+
+          SMS_ENABLED=false
+          SMS_LOGIN=${{ vars.SMS_LOGIN }}
+          SMS_PASSWORD=${{ vars.SMS_PASSWORD }}
+          SMS_NICKNAME=${{ vars.SMS_NICKNAME }}
+          EOF
+
       - name: 💣 Reset environment (optional)
-        if: ${{ github.event.inputs.resetDevEnvironment == 'true' }}
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.resetDevEnvironment == 'true' }}
         run: |
-          make dev-reset
+          echo "🛑 Останавливаю и удаляю сервисы..."
+          docker compose -f docker-compose.dev.yml down -v --remove-orphans || true
 
-      - name: 🛠 Build image (optional)
-        if: ${{ github.event.inputs.buildImage == 'true' }}
-        run: |
-          make dev-build
+          echo "🧹 Чищу dangling images и builder cache..."
+          docker image prune -af || true
+          docker builder prune -af || true
 
-      - name: 🚀 Deploy containers
-        run: |
-          make dev-deploy
+          echo "🧹 Удаляю volumes проекта ${{ env.COMPOSE_PROJECT_NAME }}..."
+          docker volume ls --filter name=${{ env.COMPOSE_PROJECT_NAME }} -q | xargs -r docker volume rm || true
 
-      - name: 🔍 Health check
+      - name: ⬇️ Pull base images (optional)
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.pullBaseImages == 'true' }}
         run: |
+          docker compose -f docker-compose.dev.yml pull postgres redis
+
+      - name: 🏗️ (Optional) Build API image
+        if: ${{ (github.event_name == 'workflow_dispatch' && inputs.buildImage == 'true') || github.event_name == 'push' }}
+        run: |
+          docker build -t box4kids-server-api:dev -f Dockerfile .
+
+      - name: 🐘 Ensure Postgres & Redis (no recreate)
+        run: |
+          # Создаст, если отсутствуют; если уже запущены — не тронет
+          docker compose -f docker-compose.dev.yml up -d --no-recreate postgres redis
+
+      - name: ⏳ Wait for Postgres healthy
+        run: |
+          CID="$(docker compose -f docker-compose.dev.yml ps -q postgres)"
           for i in {1..5}; do
-            if curl -fs http://localhost:8000/health > /dev/null; then
-              echo "✅ Health check passed"
-              exit 0
-            fi
-            echo "⏳ Waiting for app... ($i/5)"
+            STATUS="$(docker inspect -f '{{.State.Health.Status}}' "$CID" 2>/dev/null || echo starting)"
+            echo "Postgres health: $STATUS"
+            [ "$STATUS" = "healthy" ] && exit 0
             sleep 2
           done
-          echo "❌ App failed health check"
+          docker compose -f docker-compose.dev.yml logs postgres --tail=200
+          exit 1
+
+      - name: 🧱 Run Alembic migrations
+        if: ${{ (github.event_name == 'workflow_dispatch' && inputs.runMigrations == 'true') || github.event_name == 'push' }}
+        run: |
+          docker compose -f docker-compose.dev.yml run --rm migrate
+
+      - name: 🚀 Start API
+        run: |
+          docker compose -f docker-compose.dev.yml up -d --no-deps --force-recreate api
+
+      - name: ❤️ API healthcheck
+        run: |
+          for i in {1..30}; do
+            curl -fsS http://127.0.0.1:8000/health >/dev/null && exit 0
+            echo "waiting API... ($i)"; sleep 2
+          done
+          docker compose -f docker-compose.dev.yml logs api --tail=200
           exit 1

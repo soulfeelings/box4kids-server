@@ -45,7 +45,7 @@ async def send_otp(
     req: Request = None
 ):
     lang = req.state.lang if req and hasattr(req.state, 'lang') else 'ru'
-    success = auth_service.verify_phone(request.phone_number)
+    success = await auth_service.verify_phone(request.phone_number)
     
     if not success:
         print(f"API /send-otp: Не удалось отправить код для {request.phone_number}")
@@ -100,7 +100,7 @@ async def initiate_phone_change(
     req: Request = None
 ):
     lang = req.state.lang if req and hasattr(req.state, 'lang') else 'ru'
-    success = auth_service.initiate_phone_change(
+    success = await auth_service.initiate_phone_change(
         current_user.id,
         current_user.phone_number,
         request.current_phone_code,
