@@ -12,6 +12,8 @@ from .subscription_plan import SubscriptionPlan
 from .plan_toy_configuration import PlanToyConfiguration
 from .toy_box import ToyBox, ToyBoxItem, ToyBoxReview, ToyBoxStatus
 from .allowed_delivery_date import AllowedDeliveryDate
+from .allowed_delivery_time import AllowedDeliveryTime
+from .inventory import Inventory
 
 __all__ = [
     "User", "UserRole",
@@ -28,4 +30,6 @@ __all__ = [
     "PlanToyConfiguration",
     "ToyBox", "ToyBoxItem", "ToyBoxReview", "ToyBoxStatus",
     "AllowedDeliveryDate",
+    "AllowedDeliveryTime",
+    "Inventory",
 ] 
