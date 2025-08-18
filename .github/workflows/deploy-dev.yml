@@ -1,5 +1,9 @@
 name: 🚀 Deploy Box4Kids Server (dev)
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   workflow_dispatch:
     inputs:
