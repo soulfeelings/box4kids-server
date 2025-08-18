@@ -104,7 +104,7 @@ jobs:
       - name: ⏳ Wait for Postgres healthy
         run: |
           CID="$(docker compose -f docker-compose.dev.yml ps -q postgres)"
-          for i in {1..60}; do
+          for i in {1..5}; do
             STATUS="$(docker inspect -f '{{.State.Health.Status}}' "$CID" 2>/dev/null || echo starting)"
             echo "Postgres health: $STATUS"
             [ "$STATUS" = "healthy" ] && exit 0
